@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>POAE · Sala ao Vivo</title>
+<style>
+  :root{
+    --bg:#0a0c10; --fg:#e8eaed; --dim:#7d858f;
+    --line:#1e232b; --card:#12161c; --acc:#c8a24a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg); min-height:100dvh;
+    font:400 16px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif;
+    display:flex; flex-direction:column; align-items:center; padding:24px 18px 48px;
+  }
+  .wrap{width:100%;max-width:620px}
+  h1{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);font-weight:500;margin-bottom:20px}
+  h2{font-size:22px;font-weight:600;line-height:1.25;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px}
+  label{display:block;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+  input,textarea{width:100%;background:#0d1116;border:1px solid var(--line);border-radius:8px;
+    color:var(--fg);padding:12px 14px;font:inherit;margin-bottom:12px}
+  input:focus,textarea:focus{outline:none;border-color:var(--acc)}
+  button{background:var(--acc);color:#0a0c10;border:0;border-radius:8px;
+    padding:13px 20px;font:600 15px/1 inherit;cursor:pointer;width:100%;margin-bottom:8px}
+  button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .msg{padding:11px 14px;border-radius:8px;font-size:14px;margin-bottom:12px}
+  .msg.err{background:#2a1416;color:#f2a1a1;border:1px solid #4a1f22}
+  .msg.ok{background:#122418;color:#9fd9b3;border:1px solid #1f4a2d}
+  details{margin-top:8px}
+  summary{cursor:pointer;font-size:12px;color:var(--dim)}
+  pre{white-space:pre-wrap;word-break:break-word;font:12px/1.5 ui-monospace,monospace;
+    color:var(--dim);margin-top:6px}
+  .codigo{font:700 46px/1 ui-monospace,monospace;letter-spacing:.14em;color:var(--acc);text-align:center;padding:10px 0}
+  .meta{font-size:13px;color:var(--dim)}
+  .mod{display:flex;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+  .mod button{width:auto;padding:7px 13px;font-size:13px;margin:0}
+  .mod .t{flex:1;font-size:15px}
+  .cloud{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:baseline;justify-content:center;padding:20px 0}
+  body.telao{justify-content:center;padding:40px}
+  body.telao .wrap{max-width:1400px;text-align:center}
+  body.telao .codigo{font-size:clamp(60px,13vw,180px)}
+  body.telao h2{font-size:clamp(26px,4.4vw,58px);margin-bottom:30px}
+  body.telao .cloud{gap:14px 34px}
+  .timer{font:700 32px/1 ui-monospace,monospace;color:var(--acc);text-align:center;margin-bottom:10px}
+  .nav{display:flex;gap:8px;margin-bottom:22px}
+  .nav a{flex:1;text-align:center;padding:9px;border:1px solid var(--line);border-radius:8px;
+    color:var(--dim);text-decoration:none;font-size:13px}
+  .nav a.on{color:var(--acc);border-color:var(--acc)}
+  .conn{position:fixed;top:0;left:0;right:0;background:#4a2f10;color:#f0c987;
+    text-align:center;padding:7px;font-size:13px;display:none}
+  .conn.on{display:block}
+</style>
+</head>
+<body>
+<div class="conn" id="conn">Reconectando…</div>
+<div class="wrap" id="app"><p class="meta">Carregando…</p></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://ykkgybnsdmkqewjqkhfm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_aqYO6MH3-cbK9K_azQ0G0A_0jYqopbW';
+
+const sb  = createClient(SUPABASE_URL, SUPABASE_KEY);
+const app = document.getElementById('app');
+const conn = document.getElementById('conn');
+const modo = new URLSearchParams(location.search).get('m') || 'aluno';
+if (modo === 'telao') document.body.classList.add('telao');
+
+const ERROS = {
+  SALA_NAO_ENCONTRADA: 'Código não encontrado, ou a sala já foi encerrada.',
+  APELIDO_INVALIDO:    'O apelido precisa ter de 2 a 20 caracteres.',
+  APELIDO_EM_USO:      'Esse apelido já está em uso nesta sala. Escolha outro.',
+  APELIDO_RECUSADO:    'Esse apelido não é permitido.',
+  ITEM_FECHADO:        'A janela de resposta fechou.',
+  JA_RESPONDEU:        'Você já respondeu esta pergunta.',
+  NAO_PARTICIPANTE:    'Você não está nesta sala.',
+  NAO_AUTORIZADO:      'Só o instrutor que criou a sessão pode fazer isso.',
+  TERMOS_DEMAIS:       'Você enviou mais termos do que o permitido.',
+  TELAO_JA_CONECTADO:  'Já existe um telão conectado a esta sala.',
+  PAPEL_INVALIDO:      'Papel inválido.',
+  AUTENTICACAO_AUSENTE:'Sessão anônima não iniciada. Habilite "Anonymous sign-ins" no Supabase.'
+};
+
+const esc = s => String(s ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+// Frase em português para o aluno + mensagem crua num <details> para diagnóstico.
+// Sem o segundo, um erro de banco chega à tela como "cannot read properties of null".
+function blocoErro(e) {
+  const cru = e?.message || String(e);
+  const cod = cru.match(/[A-Z_]{6,}/);
+  const amigavel = (cod && ERROS[cod[0]]) || 'Algo falhou. Detalhes abaixo.';
+  return `<div class="msg err">${esc(amigavel)}
+    <details><summary>detalhe técnico</summary><pre>${esc(cru)}</pre></details></div>`;
+}
+function mostrarErro(e) {
+  console.error(e);
+  const alvo = app.querySelector('.card') || app;
+  alvo.insertAdjacentHTML('afterbegin', blocoErro(e));
+}
+
+// Todo acesso ao banco passa por aqui: nenhum erro volta a ser engolido.
+async function rpc(fn, args) {
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) throw error;
+  return data;
+}
+async function sel(builder) {
+  const { data, error } = await builder;
+  if (error) throw error;
+  return data;
+}
+
+async function autenticar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) return session.user;
+  const { data, error } = await sb.auth.signInAnonymously();
+  if (error) throw error;
+  return data.user;
+}
+
+const S = { sessao:null, participante:null, item:null, canal:null, tick:null, render:null };
+
+async function carregarSessao(id) {
+  S.sessao = await sel(sb.from('sessoes').select('*').eq('id', id).single());
+  S.item = S.sessao?.item_atual
+    ? await sel(sb.from('v_itens').select('*').eq('id', S.sessao.item_atual).maybeSingle())
+    : null;
+}
+
+// Refetch a cada evento: mais consultas, muito menos divergência entre telas.
+function escutar(sessaoId, render) {
+  S.render = render;
+  if (S.canal) sb.removeChannel(S.canal);
+  S.canal = sb.channel('sala:' + sessaoId)
+    .on('postgres_changes',
+        { event:'*', schema:'public', table:'sessoes', filter:'id=eq.'+sessaoId },
+        async () => { try { await carregarSessao(sessaoId); render(); } catch(e){ mostrarErro(e); } })
+    .on('postgres_changes',
+        { event:'*', schema:'public', table:'termos' },
+        () => render())
+    .subscribe((status) => {
+      const caiu = status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED';
+      conn.classList.toggle('on', caiu);
+      if (caiu) setTimeout(() => escutar(sessaoId, render), 2000);
+    });
+}
+
+// Celular com a tela apagada suspende o WebSocket. Ao voltar, ressincroniza.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !S.sessao || !S.render) return;
+  try { await carregarSessao(S.sessao.id); S.render(); } catch (e) { mostrarErro(e); }
+});
+
+function contador(render) {
+  clearInterval(S.tick);
+  if (!S.item?.aberto_em || S.item.fechado_em) return;
+  S.tick = setInterval(() => {
+    const fim = new Date(S.item.aberto_em).getTime() + S.item.tempo_limite_s * 1000;
+    const r = Math.max(0, Math.ceil((fim - Date.now()) / 1000));
+    const n = document.getElementById('timer');
+    if (n) n.textContent = r + 's';
+    if (r === 0) clearInterval(S.tick);
+  }, 250);
+}
+
+// ============================================================ ALUNO
+async function telaAluno() {
+ try {
+  if (!S.participante) {
+    app.innerHTML = `
+      <h1>Poder Aeroespacial · Sala ao Vivo</h1>
+      <div class="card">
+        <label>Código da sala</label>
+        <input id="cod" maxlength="6" autocapitalize="characters" autocomplete="off" placeholder="ABC123">
+        <label>Seu apelido</label>
+        <input id="ape" maxlength="20" autocomplete="off" placeholder="como você quer aparecer">
+        <button id="ir">Entrar</button>
+        <p class="meta">Seu apelido aparece no telão. Escolha algo que você não se importe de ver projetado.</p>
+      </div>`;
+    document.getElementById('ir').onclick = async (ev) => {
+      ev.target.disabled = true;
+      try {
+        const r = await rpc('sala_entrar', {
+          p_codigo:  document.getElementById('cod').value.trim().toUpperCase(),
+          p_apelido: document.getElementById('ape').value.trim()
+        });
+        S.participante = r.participante_id;
+        await carregarSessao(r.sessao_id);
+        escutar(r.sessao_id, telaAluno);
+        telaAluno();
+      } catch (e) { ev.target.disabled = false; mostrarErro(e); }
+    };
+    return;
+  }
+
+  const f = S.sessao?.fase;
+  let html = `<h1>Sala ${esc(S.sessao.codigo)}</h1>`;
+
+  if (f === 'lobby' || !S.item) {
+    html += `<div class="card"><h2>Você está na sala.</h2>
+      <p class="meta">Aguarde o instrutor abrir a primeira pergunta.</p></div>`;
+  } else if (f === 'item_aberto' && S.item.tipo === 'nuvem') {
+    html += `<div class="card"><div class="timer" id="timer">—</div>
+      <h2>${esc(S.item.enunciado)}</h2><div id="campos"></div>
+      <button id="env">Enviar</button>
+      <p class="meta">Até ${S.item.max_termos} termo(s). Uma palavra ou expressão curta.</p></div>`;
+  } else if (f === 'item_aberto' && S.item.tipo === 'quiz') {
+    html += `<div class="card"><div class="timer" id="timer">—</div>
+      <h2>${esc(S.item.enunciado)}</h2>
+      ${(S.item.opcoes||[]).map(o =>
+        `<button class="sec opc" data-id="${esc(o.id)}">${esc(o.texto)}</button>`).join('')}</div>`;
+  } else if (f === 'revelacao') {
+    html += `<div class="card"><h2>Respostas encerradas.</h2>
+      <p class="meta">Olhe para o telão.</p></div>`;
+  } else {
+    html += `<div class="card"><h2>Aguardando o instrutor.</h2></div>`;
+  }
+  app.innerHTML = html;
+
+  if (f === 'item_aberto' && S.item?.tipo === 'nuvem') {
+    const c = document.getElementById('campos');
+    for (let i = 0; i < S.item.max_termos; i++) {
+      const inp = document.createElement('input');
+      inp.className = 'tm'; inp.maxLength = 40; inp.autocomplete = 'off';
+      inp.placeholder = 'termo ' + (i + 1);
+      c.append(inp);
+    }
+    document.getElementById('env').onclick = async (ev) => {
+      const vs = [...document.querySelectorAll('.tm')].map(i => i.value.trim()).filter(Boolean);
+      if (!vs.length) return;
+      ev.target.disabled = true;
+      await enviar({ p_item: S.item.id, p_valor: vs });
+    };
+  }
+  document.querySelectorAll('.opc').forEach(btn => btn.onclick = () => {
+    document.querySelectorAll('.opc').forEach(x => x.disabled = true);
+    enviar({ p_item: S.item.id, p_valor: btn.dataset.id });
+  });
+  contador(telaAluno);
+ } catch (e) { mostrarErro(e); }
+}
+
+async function enviar(args) {
+  try {
+    await rpc('sala_responder', args);
+    app.querySelector('.card').innerHTML =
+      `<div class="msg ok">Resposta registrada.</div><p class="meta">Olhe para o telão.</p>`;
+  } catch (e) { mostrarErro(e); }
+}
+
+// ============================================================ PAINEL
+async function telaPainel() {
+ try {
+  if (!S.sessao) {
+    const minhas = await sel(sb.from('sessoes').select('*')
+      .neq('fase','encerrada').order('criada_em',{ascending:false}).limit(5));
+    app.innerHTML = `
+      <div class="nav"><a href="?m=painel" class="on">Painel</a><a href="?m=telao">Telão</a><a href="?m=aluno">Aluno</a></div>
+      <h1>Painel do instrutor</h1>
+      <div class="card">
+        <label>Nova sessão · número da aula</label>
+        <input id="aula" type="number" min="1" max="16" value="1">
+        <label>Título</label>
+        <input id="tit" placeholder="Ex.: Doutrina e Poder Aeroespacial">
+        <button id="cri">Criar sessão</button>
+      </div>
+      ${(minhas||[]).length ? `<div class="card"><label>Sessões abertas</label>
+        ${minhas.map(s=>`<button class="sec ret" data-id="${s.id}">${esc(s.codigo)} · aula ${s.aula_id}</button>`).join('')}
+      </div>` : ''}`;
+    document.getElementById('cri').onclick = async (ev) => {
+      ev.target.disabled = true;
+      try {
+        const s = await rpc('sala_criar', {
+          p_aula_id: +document.getElementById('aula').value,
+          p_titulo:  document.getElementById('tit').value.trim() || null
+        });
+        S.sessao = s; escutar(s.id, telaPainel); telaPainel();
+      } catch (e) { ev.target.disabled = false; mostrarErro(e); }
+    };
+    document.querySelectorAll('.ret').forEach(b => b.onclick = async () => {
+      try { await carregarSessao(b.dataset.id); escutar(b.dataset.id, telaPainel); telaPainel(); }
+      catch (e) { mostrarErro(e); }
+    });
+    return;
+  }
+
+  const itens = await sel(sb.from('itens')
+    .select('id,ordem,tipo,enunciado,aberto_em,fechado_em')
+    .eq('sessao_id', S.sessao.id).order('ordem'));
+
+  const { count, error: eC } = await sb.from('participantes')
+    .select('*', {count:'exact', head:true})
+    .eq('sessao_id', S.sessao.id).eq('papel','aluno');
+  if (eC) throw eC;
+
+  const pend = S.item
+    ? await sel(sb.from('termos').select('id,original,termo,aprovado')
+        .eq('item_id', S.item.id).order('criado_em'))
+    : [];
+
+  app.innerHTML = `
+    <div class="nav"><a href="?m=painel" class="on">Painel</a><a href="?m=telao">Telão</a><a href="?m=aluno">Aluno</a></div>
+    <h1>Sala ${esc(S.sessao.codigo)} · fase: ${esc(S.sessao.fase)}</h1>
+    <div class="card"><div class="codigo">${esc(S.sessao.codigo)}</div>
+      <p class="meta" style="text-align:center">${count||0} aluno(s) conectado(s)</p></div>
+    <div class="card">
+      <label>Nova nuvem de palavras</label>
+      <textarea id="enun" rows="2" placeholder="Ex.: Em uma palavra, o que é controle do ar?"></textarea>
+      <button id="add">Criar item</button>
+    </div>
+    ${itens?.length ? `<div class="card"><label>Itens</label>
+      ${itens.map(i=>`<div class="mod"><span class="t">${i.ordem}. ${esc(i.enunciado)}</span>
+        ${!i.aberto_em ? `<button data-abrir="${i.id}">Abrir</button>`
+          : (!i.fechado_em ? `<button data-fechar="${i.id}">Fechar</button>`
+          : `<span class="meta">encerrado</span>`)}</div>`).join('')}
+    </div>` : ''}
+    ${pend.length ? `<div class="card"><label>Moderação · ${pend.filter(t=>!t.aprovado).length} pendente(s)</label>
+      ${pend.map(t=>`<div class="mod"><span class="t">${esc(t.original)}
+        <span class="meta">→ ${esc(t.termo)}</span></span>
+        ${t.aprovado ? `<span class="meta">no telão</span>`
+          : `<button data-ok="${t.id}">Aprovar</button>`}</div>`).join('')}
+    </div>` : ''}
+    <div class="card">
+      <button class="sec" id="placar">Ir para o placar</button>
+      <button class="sec" id="fim">Encerrar sessão</button>
+    </div>`;
+
+  const acao = async (fn, args, ev) => {
+    if (ev) ev.target.disabled = true;
+    try { await rpc(fn, args); await carregarSessao(S.sessao.id); telaPainel(); }
+    catch (e) { if (ev) ev.target.disabled = false; mostrarErro(e); }
+  };
+
+  document.getElementById('add').onclick = (ev) => acao('sala_criar_item', {
+    p_sessao: S.sessao.id, p_tipo: 'nuvem',
+    p_enunciado: document.getElementById('enun').value.trim()
+  }, ev);
+  document.querySelectorAll('[data-abrir]').forEach(b =>
+    b.onclick = (ev) => acao('sala_abrir_item', { p_item: b.dataset.abrir }, ev));
+  document.querySelectorAll('[data-fechar]').forEach(b =>
+    b.onclick = (ev) => acao('sala_fechar_item', { p_item: b.dataset.fechar }, ev));
+  document.querySelectorAll('[data-ok]').forEach(b =>
+    b.onclick = (ev) => acao('sala_moderar_termo', { p_termo: b.dataset.ok, p_aprovado: true }, ev));
+  document.getElementById('placar').onclick = (ev) =>
+    acao('sala_definir_fase', { p_sessao: S.sessao.id, p_fase: 'placar' }, ev);
+  document.getElementById('fim').onclick = async () => {
+    if (!confirm('Encerrar a sessão? Os alunos serão desconectados.')) return;
+    try { await rpc('sala_definir_fase', { p_sessao: S.sessao.id, p_fase: 'encerrada' });
+          S.sessao = null; S.item = null; telaPainel(); }
+    catch (e) { mostrarErro(e); }
+  };
+ } catch (e) { mostrarErro(e); }
+}
+
+// ============================================================ TELÃO
+async function telaTelao() {
+ try {
+  if (!S.participante) {
+    app.innerHTML = `<h1>Telão</h1><div class="card">
+      <label>Código da sala</label>
+      <input id="cod" maxlength="6" autocapitalize="characters" placeholder="ABC123">
+      <button id="ir">Conectar</button></div>`;
+    document.getElementById('ir').onclick = async (ev) => {
+      ev.target.disabled = true;
+      try {
+        const r = await rpc('sala_entrar', {
+          p_codigo: document.getElementById('cod').value.trim().toUpperCase(),
+          p_apelido: '', p_papel: 'telao'
+        });
+        S.participante = r.participante_id;
+        await carregarSessao(r.sessao_id);
+        escutar(r.sessao_id, telaTelao);
+        telaTelao();
+      } catch (e) { ev.target.disabled = false; mostrarErro(e); }
+    };
+    return;
+  }
+
+  const f = S.sessao.fase;
+  if (f === 'lobby' || !S.item) {
+    app.innerHTML = `<h2>Entre com o código</h2>
+      <div class="codigo">${esc(S.sessao.codigo)}</div>`;
+    return;
+  }
+
+  const n = await sel(sb.from('v_nuvem').select('*')
+    .eq('item_id', S.item.id).order('peso', { ascending:false }));
+  const max = Math.max(1, ...(n||[]).map(t=>t.peso));
+  const nuvem = (n||[]).map(t => {
+    const px = 26 + (t.peso / max) * 74;
+    const op = 0.55 + (t.peso / max) * 0.45;
+    return `<span style="font-size:${px}px;opacity:${op};line-height:1.1">${esc(t.termo)}</span>`;
+  }).join('');
+
+  app.innerHTML = `<h2>${esc(S.item.enunciado)}</h2>
+    ${f === 'item_aberto' ? `<div class="timer" id="timer">—</div>` : ''}
+    <div class="cloud">${nuvem || '<span class="meta">aguardando respostas…</span>'}</div>
+    <p class="meta">código ${esc(S.sessao.codigo)}</p>`;
+  contador(telaTelao);
+ } catch (e) { mostrarErro(e); }
+}
+
+// ============================================================
+(async () => {
+  try {
+    await autenticar();
+    if (modo === 'painel') telaPainel();
+    else if (modo === 'telao') telaTelao();
+    else telaAluno();
+  } catch (e) {
+    app.innerHTML = blocoErro(e) +
+      `<p class="meta">Se a mensagem citar autenticação, habilite <strong>Anonymous sign-ins</strong>
+       em Authentication → Sign In / Providers no painel do Supabase.</p>`;
+  }
+})();
+</script>
+</body>
+</html>
