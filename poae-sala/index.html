@@ -36,6 +36,12 @@
     color:var(--dim);margin-top:6px}
   .codigo{font:700 46px/1 ui-monospace,monospace;letter-spacing:.14em;color:var(--acc);text-align:center;padding:10px 0}
   .meta{font-size:13px;color:var(--dim)}
+  .volta{display:inline-block;color:var(--dim);text-decoration:none;font-size:13px;
+    letter-spacing:.08em;margin-bottom:18px}
+  .volta:hover{color:var(--acc)}
+  button.del{background:transparent;color:#e08a8a;border:1px solid #4a1f22}
+  .cloud span{transition:font-size .5s ease, opacity .5s ease}
+  .mod.off .t{opacity:.4;text-decoration:line-through}
   .mod{display:flex;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
   .mod button{width:auto;padding:7px 13px;font-size:13px;margin:0}
   .mod .t{flex:1;font-size:15px}
@@ -64,11 +70,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = 'https://ykkgybnsdmkqewjqkhfm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_aqYO6MH3-cbK9K_azQ0G0A_0jYqopbW';
+const SITE = '/';   // volta para a pagina cinematica
 
 const sb  = createClient(SUPABASE_URL, SUPABASE_KEY);
 const app = document.getElementById('app');
 const conn = document.getElementById('conn');
-const modo = new URLSearchParams(location.search).get('m') || 'aluno';
+const params = new URLSearchParams(location.search);
+const modo = params.get('m') || 'aluno';
+const codigoURL = (params.get('c') || '').trim().toUpperCase();
 if (modo === 'telao') document.body.classList.add('telao');
 
 const ERROS = {
@@ -173,15 +182,18 @@ async function telaAluno() {
  try {
   if (!S.participante) {
     app.innerHTML = `
-      <h1>Poder Aeroespacial · Sala ao Vivo</h1>
+      <a class="volta" href="${SITE}">← Poder Aeroespacial</a>
+      <h1>Sala ao Vivo</h1>
       <div class="card">
         <label>Código da sala</label>
-        <input id="cod" maxlength="6" autocapitalize="characters" autocomplete="off" placeholder="ABC123">
+        <input id="cod" maxlength="6" autocapitalize="characters" autocomplete="off"
+               placeholder="ABC123" value="${esc(codigoURL)}">
         <label>Seu apelido</label>
         <input id="ape" maxlength="20" autocomplete="off" placeholder="como você quer aparecer">
         <button id="ir">Entrar</button>
         <p class="meta">Seu apelido aparece no telão. Escolha algo que você não se importe de ver projetado.</p>
       </div>`;
+    if (codigoURL) document.getElementById('ape').focus();
     document.getElementById('ir').onclick = async (ev) => {
       ev.target.disabled = true;
       try {
@@ -298,9 +310,9 @@ async function telaPainel() {
     .eq('sessao_id', S.sessao.id).eq('papel','aluno');
   if (eC) throw eC;
 
-  const pend = S.item
+  const termos = S.item
     ? await sel(sb.from('termos').select('id,original,termo,aprovado')
-        .eq('item_id', S.item.id).order('criado_em'))
+        .eq('item_id', S.item.id).order('criado_em', { ascending:false }))
     : [];
 
   app.innerHTML = `
@@ -319,11 +331,13 @@ async function telaPainel() {
           : (!i.fechado_em ? `<button data-fechar="${i.id}">Fechar</button>`
           : `<span class="meta">encerrado</span>`)}</div>`).join('')}
     </div>` : ''}
-    ${pend.length ? `<div class="card"><label>Moderação · ${pend.filter(t=>!t.aprovado).length} pendente(s)</label>
-      ${pend.map(t=>`<div class="mod"><span class="t">${esc(t.original)}
-        <span class="meta">→ ${esc(t.termo)}</span></span>
-        ${t.aprovado ? `<span class="meta">no telão</span>`
-          : `<button data-ok="${t.id}">Aprovar</button>`}</div>`).join('')}
+    ${termos.length ? `<div class="card">
+      <label>Termos no telão · ${termos.filter(t=>t.aprovado).length} visível(is)</label>
+      <p class="meta" style="margin-bottom:8px">Aparecem automaticamente. Remova apenas se necessário.</p>
+      ${termos.map(t=>`<div class="mod ${t.aprovado ? '' : 'off'}">
+        <span class="t">${esc(t.original)}<span class="meta"> → ${esc(t.termo)}</span></span>
+        ${t.aprovado ? `<button class="del" data-off="${t.id}">Remover</button>`
+                     : `<button class="sec" data-on="${t.id}">Restaurar</button>`}</div>`).join('')}
     </div>` : ''}
     <div class="card">
       <button class="sec" id="placar">Ir para o placar</button>
@@ -344,8 +358,10 @@ async function telaPainel() {
     b.onclick = (ev) => acao('sala_abrir_item', { p_item: b.dataset.abrir }, ev));
   document.querySelectorAll('[data-fechar]').forEach(b =>
     b.onclick = (ev) => acao('sala_fechar_item', { p_item: b.dataset.fechar }, ev));
-  document.querySelectorAll('[data-ok]').forEach(b =>
-    b.onclick = (ev) => acao('sala_moderar_termo', { p_termo: b.dataset.ok, p_aprovado: true }, ev));
+  document.querySelectorAll('[data-off]').forEach(b =>
+    b.onclick = (ev) => acao('sala_moderar_termo', { p_termo: b.dataset.off, p_aprovado: false }, ev));
+  document.querySelectorAll('[data-on]').forEach(b =>
+    b.onclick = (ev) => acao('sala_moderar_termo', { p_termo: b.dataset.on, p_aprovado: true }, ev));
   document.getElementById('placar').onclick = (ev) =>
     acao('sala_definir_fase', { p_sessao: S.sessao.id, p_fase: 'placar' }, ev);
   document.getElementById('fim').onclick = async () => {
@@ -363,7 +379,8 @@ async function telaTelao() {
   if (!S.participante) {
     app.innerHTML = `<h1>Telão</h1><div class="card">
       <label>Código da sala</label>
-      <input id="cod" maxlength="6" autocapitalize="characters" placeholder="ABC123">
+      <input id="cod" maxlength="6" autocapitalize="characters" placeholder="ABC123"
+             value="${esc(codigoURL)}">
       <button id="ir">Conectar</button></div>`;
     document.getElementById('ir').onclick = async (ev) => {
       ev.target.disabled = true;
@@ -383,7 +400,7 @@ async function telaTelao() {
 
   const f = S.sessao.fase;
   if (f === 'lobby' || !S.item) {
-    app.innerHTML = `<h2>Entre com o código</h2>
+    app.innerHTML = `<h2>Entre em <span style="color:var(--acc)">${esc(location.host)}</span> e informe o código</h2>
       <div class="codigo">${esc(S.sessao.codigo)}</div>`;
     return;
   }
@@ -392,9 +409,12 @@ async function telaTelao() {
     .eq('item_id', S.item.id).order('peso', { ascending:false }));
   const max = Math.max(1, ...(n||[]).map(t=>t.peso));
   const nuvem = (n||[]).map(t => {
-    const px = 26 + (t.peso / max) * 74;
-    const op = 0.55 + (t.peso / max) * 0.45;
-    return `<span style="font-size:${px}px;opacity:${op};line-height:1.1">${esc(t.termo)}</span>`;
+    const p  = t.peso / max;                      // repeticao vira destaque
+    const px = 28 + p * 88;
+    const op = 0.5 + p * 0.5;
+    const w  = p > 0.66 ? 700 : (p > 0.33 ? 600 : 400);
+    const cor = p > 0.66 ? 'var(--acc)' : 'var(--fg)';
+    return `<span style="font-size:${px}px;opacity:${op};font-weight:${w};color:${cor};line-height:1.1">${esc(t.termo)}</span>`;
   }).join('');
 
   app.innerHTML = `<h2>${esc(S.item.enunciado)}</h2>
