@@ -732,6 +732,21 @@ function telaPerfil(){
   };
 }
 
+/* ── conta de instrutor caiu na porta do aluno ───────────────────── */
+function telaInstrutor(){
+  app.innerHTML = cabecalho('Avaliação · POAE 2026', 'Esta é a porta do cadete.') + `
+    <div class="cx">
+      <p class="lede">A conta <b>${esc(S.user.email)}</b> tem papel de instrutor. O painel
+        de montagem, aplicação e correção fica em outro endereço.</p>
+      <div class="linhabtn">
+        <a class="btn solid" href="painel.html">Ir para o painel do instrutor</a>
+        <button class="btn" id="sairc">Sair desta conta</button>
+      </div>
+    </div>`;
+  document.getElementById('sairc').onclick = async () => {
+    await sb.auth.signOut(); location.reload(); };
+}
+
 /* ── espera ──────────────────────────────────────────────────────── */
 let esperaId = null;
 function telaEspera(){
@@ -1085,7 +1100,15 @@ async function rotear(){
   S.user = session.user;
 
   S.sit = await rpc('pv_minha_situacao');
-  if (!S.sit.cadastrado) return telaPerfil();
+
+  /* Conta de instrutor não deve ser empurrada para o cadastro de cadete:
+     ela não tem nome de guerra nem turma, e nunca terá. */
+  if (!S.sit.cadastrado){
+    let ehInstrutor = false;
+    try { ehInstrutor = await rpc('pv_eh_instrutor'); } catch(e){}
+    if (ehInstrutor) return telaInstrutor();
+    return telaPerfil();
+  }
 
   if (S.sit.tentativa?.publicada) return telaResultado();
   telaEspera();
