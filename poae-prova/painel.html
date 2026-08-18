@@ -1025,13 +1025,25 @@ async function avaliarTrabalho(id){
           ${alunos.filter(a => !jaMembro.has(a.id)).map(a =>
             `<option value="${a.id}">${esc(a.nome_guerra)}</option>`).join('')}
         </select></div><button class="btn" id="add">Incluir</button></div>
-      ${d.membros.length ? `<div class="linha" style="gap:7px">${d.membros.map(m =>
-        `<span class="selo viva">${esc(m.nome_guerra)}
-          <button data-rm="${m.aluno_id}" style="margin-left:7px;color:inherit">×</button></span>`).join('')}</div>`
+      ${d.membros.length ? `<div class="rolar" style="margin-top:14px"><table><thead><tr>
+        <th>Cadete</th><th>Desconto (pts)</th><th>Motivo</th><th></th></tr></thead><tbody>
+        ${d.membros.map(m => `<tr>
+          <td>${esc(m.nome_guerra)}</td>
+          <td><input type="number" step="0.25" min="0" data-desc="${m.aluno_id}"
+            value="${m.desconto ?? 0}" style="width:88px;text-align:center"></td>
+          <td><input data-mot="${m.aluno_id}" value="${esc(m.motivo_desconto||'')}"
+            placeholder="atraso no envio dos slides"></td>
+          <td><button class="btn mini" data-rm="${m.aluno_id}">Remover</button></td>
+        </tr>`).join('')}</tbody></table></div>
+        <p class="meta" style="margin-top:10px;text-transform:none;letter-spacing:.04em">
+          O desconto é individual e sai da nota final do cadete — é o que o PLADIS prevê
+          para atraso no envio dos slides pelo Moodle.</p>`
         : `<p class="vazio">Nenhum cadete neste grupo</p>`}
     </div>
 
-    <div class="cx"><h2>Apresentação do grupo</h2>
+    <div class="cx"><h2>Apresentação do grupo
+      <span class="dir" id="totG" style="float:right;font-family:var(--mono);font-size:12px;
+        letter-spacing:.1em;color:var(--vfr)"></span></h2>
       ${d.criterios_grupo.length ? d.criterios_grupo.map(c => blocoCrit(c, false)).join('')
         : `<p class="vazio">Escolha uma rubrica de grupo acima</p>`}
       <div class="campo" style="margin-top:14px"><label>Observação geral ao grupo</label>
@@ -1051,6 +1063,29 @@ async function avaliarTrabalho(id){
   d.membros.forEach(m => Object.entries(m.notas || {}).forEach(([cid, v]) => {
     sel_i[m.aluno_id + '|' + cid] = Number(v.valor); }));
 
+  /* Nota corrente da rubrica: soma(valor × peso) ÷ soma(teto × peso) × nota máxima.
+     Com a rubrica do PLADIS os pesos são 1 e os tetos somam 10 — a conta devolve
+     exatamente o somatório dos níveis escolhidos. */
+  function totalGrupo(){
+    const cs = d.criterios_grupo;
+    if (!cs.length) return null;
+    let obt = 0, teto = 0;
+    cs.forEach(c => {
+      const tc = Math.max(0, ...(c.niveis||[]).map(n => Number(n.valor)||0));
+      teto += tc * Number(c.peso);
+      if (sel_g[c.id] != null) obt += Number(sel_g[c.id]) * Number(c.peso);
+    });
+    return teto ? (obt / teto) * Number(t.nota_maxima) : null;
+  }
+  function pintarTotal(){
+    const el = document.getElementById('totG');
+    if (!el) return;
+    const v = totalGrupo();
+    const faltam = d.criterios_grupo.filter(c => sel_g[c.id] == null).length;
+    el.textContent = v == null ? ''
+      : `${num(v,2)} / ${num(t.nota_maxima,1)}${faltam ? ` · ${faltam} sem nota` : ''}`;
+  }
+
   app.querySelectorAll('.niv[data-crit]').forEach(b => b.onclick = () => {
     const grupo = b.dataset.grupo === '1';
     const chave = grupo ? b.dataset.crit : b.dataset.aluno + '|' + b.dataset.crit;
@@ -1062,7 +1097,9 @@ async function avaliarTrabalho(id){
       : app.querySelectorAll(`.niv[data-aluno="${b.dataset.aluno}"][data-crit="${b.dataset.crit}"]`);
     irmaos.forEach(x => x.classList.remove('on'));
     if (alvo[chave] != null) b.classList.add('on');
+    pintarTotal();
   });
+  pintarTotal();
 
   document.getElementById('volta').onclick = () => { S.trabalho = null; render(); };
   document.getElementById('salvarCfg').onclick = async ev => {
@@ -1095,6 +1132,14 @@ async function avaliarTrabalho(id){
     try {
       await sb.from('pv_trabalho').update({ observacao: document.getElementById('obs').value })
         .eq('id', id);
+      for (const inp of app.querySelectorAll('[data-desc]')){
+        const al = inp.dataset.desc;
+        const mot = app.querySelector(`[data-mot="${al}"]`);
+        const { error } = await sb.from('pv_trabalho_membro')
+          .update({ desconto: Number(inp.value) || 0, motivo_desconto: mot?.value || null })
+          .eq('trabalho_id', id).eq('aluno_id', al);
+        if (error) throw error;
+      }
       await rpc('pv_salvar_avaliacao', { p_trabalho:id,
         p_grupo: Object.entries(sel_g).map(([c,v]) => ({ criterio:c, valor:v })),
         p_individual: Object.entries(sel_i).map(([k,v]) => {
