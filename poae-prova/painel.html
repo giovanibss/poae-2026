@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>POAE · Painel da avaliação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Barlow:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#070A0F; --deck:#0C1219; --line:#1B2733;
+  --chart:#E6DECB; --haze:#8494A5; --vfr:#C2506B; --azimuth:#4A87BC;
+  --verde:#6FA88A; --ambar:#C8A24A;
+  --display:"Cinzel",Georgia,serif;
+  --body:"Barlow",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --gut:clamp(16px,3vw,40px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--void);color:var(--chart);font-family:var(--body);font-weight:300;
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+a{color:var(--azimuth)}
+::selection{background:var(--vfr);color:var(--void)}
+:focus-visible{outline:1px solid var(--vfr);outline-offset:2px}
+
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--haze)}
+.h1{font-family:var(--display);text-transform:uppercase;letter-spacing:.03em;font-size:1.55rem;
+  font-weight:400;line-height:1.1}
+.h3{font-family:var(--display);text-transform:uppercase;font-size:1.05rem;letter-spacing:.04em;
+  font-weight:400}
+.meta{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#4E5F70}
+.dim{color:var(--haze)}
+
+/* ─── moldura ─── */
+.topo{position:sticky;top:0;z-index:30;background:rgba(7,10,15,.96);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line)}
+.topo-l{display:flex;align-items:center;gap:16px;padding:14px var(--gut) 0;flex-wrap:wrap}
+.topo-l .h1{flex:1;min-width:200px}
+.abas{display:flex;gap:2px;padding:12px var(--gut) 0;overflow-x:auto;scrollbar-width:none}
+.abas::-webkit-scrollbar{display:none}
+.abas button{padding:10px 15px;font-family:var(--mono);font-size:10px;letter-spacing:.15em;
+  text-transform:uppercase;color:#4E5F70;border-bottom:1px solid transparent;white-space:nowrap}
+.abas button.on{color:var(--chart);border-bottom-color:var(--vfr)}
+main{padding:24px var(--gut) 90px;max-width:1400px}
+
+.cx{border:1px solid var(--line);background:var(--deck);padding:20px;margin-bottom:14px}
+.cx > h2{font-family:var(--display);text-transform:uppercase;font-size:1rem;letter-spacing:.04em;
+  font-weight:400;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.grade{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.linha{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.dir{margin-left:auto}
+
+label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--haze);margin-bottom:6px}
+input,textarea,select{width:100%;background:var(--void);border:1px solid var(--line);
+  color:var(--chart);padding:9px 11px;transition:border-color .2s}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--vfr)}
+textarea{resize:vertical;min-height:88px;line-height:1.6}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--haze) 50%),
+  linear-gradient(135deg,var(--haze) 50%,transparent 50%);
+  background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:30px}
+input[type=number]{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.campo{margin-bottom:12px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border:1px solid var(--line);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;
+  transition:border-color .2s,background .2s,color .2s;white-space:nowrap}
+.btn:hover:not(:disabled){border-color:#33475C}
+.btn.solid{background:var(--vfr);border-color:var(--vfr);color:#fff}
+.btn.solid:hover:not(:disabled){background:#a8425a;border-color:#a8425a}
+.btn.mini{padding:6px 10px;font-size:9px}
+.btn:disabled{opacity:.32;cursor:not-allowed}
+
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+th{font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--haze);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);
+  font-weight:400;white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tr.clica{cursor:pointer}
+tr.clica:hover td{background:rgba(255,255,255,.022)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rolar{overflow-x:auto;margin:0 -20px;padding:0 20px}
+
+.selo{display:inline-block;font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;
+  text-transform:uppercase;padding:3px 8px;border:1px solid var(--line);color:var(--haze);
+  white-space:nowrap}
+.selo.viva{border-color:var(--vfr);color:var(--vfr)}
+.selo.ok{border-color:var(--verde);color:var(--verde)}
+.selo.alerta{border-color:var(--ambar);color:var(--ambar)}
+.pt{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--haze);
+  margin-right:7px;vertical-align:middle}
+.pt.on{background:var(--verde)}
+.pt.off{background:var(--vfr)}
+
+.msg{padding:11px 14px;font-size:.88rem;margin-bottom:12px;border:1px solid}
+.msg.err{background:rgba(194,80,107,.08);border-color:rgba(194,80,107,.4);color:#E9AFBC}
+.msg.ok{background:rgba(111,168,138,.08);border-color:rgba(111,168,138,.35);color:#9FD2B7}
+.msg.aviso{background:rgba(200,162,74,.07);border-color:rgba(200,162,74,.34);color:#DEC48A}
+.msg summary{cursor:pointer;font-family:var(--mono);font-size:9px;letter-spacing:.14em;
+  text-transform:uppercase;opacity:.7;margin-top:7px}
+.msg pre{white-space:pre-wrap;word-break:break-word;font:10.5px/1.5 var(--mono);margin-top:5px;opacity:.75}
+
+/* ─── níveis da rubrica ─── */
+.niveis{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.niv{padding:8px 12px;border:1px solid var(--line);font-family:var(--mono);font-size:10px;
+  letter-spacing:.06em;text-align:left;min-width:74px;transition:all .2s}
+.niv:hover{border-color:#33475C}
+.niv.on{border-color:var(--vfr);background:rgba(194,80,107,.1);color:var(--chart)}
+.niv b{display:block;font-size:13px;font-weight:500;margin-bottom:2px}
+.niv span{display:block;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--haze)}
+.crit{padding:15px 0;border-bottom:1px solid var(--line)}
+.crit:last-child{border-bottom:0}
+.crit-cab{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.crit-cab b{font-weight:400;font-size:.97rem}
+.crit-cab .meta{margin-left:auto}
+.crit p{font-size:.83rem;color:var(--haze);margin-top:3px;max-width:70ch}
+
+.membro{border:1px solid var(--line);padding:15px;margin-bottom:10px;background:var(--void)}
+.membro-cab{display:flex;align-items:center;gap:12px;padding-bottom:11px;
+  border-bottom:1px solid var(--line);margin-bottom:12px}
+.membro-cab b{font-family:var(--mono);font-size:12px;letter-spacing:.12em}
+
+.veu{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;
+  padding:20px;background:rgba(4,6,10,.9);backdrop-filter:blur(8px)}
+.veu.on{display:flex}
+.veu-cx{width:min(680px,100%);max-height:90vh;overflow-y:auto;border:1px solid var(--line);
+  background:var(--deck);padding:24px}
+.vazio{padding:34px 0;text-align:center;color:#4E5F70;font-family:var(--mono);font-size:10px;
+  letter-spacing:.16em;text-transform:uppercase}
+@media(max-width:640px){main{padding:18px var(--gut) 80px}.cx{padding:15px}.rolar{margin:0 -15px;padding:0 15px}}
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <div class="topo-l">
+    <div>
+      <span class="eyebrow">POAE 2026 · Instrutor</span>
+      <div class="h1" id="tit">Painel da avaliação</div>
+    </div>
+    <div class="dir linha" style="margin:0" id="topoBtn"></div>
+  </div>
+  <div class="abas" id="abas"></div>
+</div>
+
+<main id="app"><p class="vazio">Carregando…</p></main>
+<div class="veu" id="veu"><div class="veu-cx" id="veuCx"></div></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://ykkgybnsdmkqewjqkhfm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_aqYO6MH3-cbK9K_azQ0G0A_0jYqopbW';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const app  = document.getElementById('app');
+const abas = document.getElementById('abas');
+const topoBtn = document.getElementById('topoBtn');
+const veu  = document.getElementById('veu');
+const veuCx= document.getElementById('veuCx');
+
+const esc = s => String(s ?? '').replace(/[<>&"]/g,
+  c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const num = (v, d=2) => v == null ? '—' : Number(v).toFixed(d).replace('.', ',');
+const dt  = s => s ? new Date(s).toLocaleString('pt-BR') : '—';
+
+function erro(e){
+  console.error(e);
+  const cru = e?.message || String(e);
+  app.insertAdjacentHTML('afterbegin', `<div class="msg err">${esc(
+    cru.length < 150 ? cru : 'Algo falhou.')}
+    <details><summary>detalhe técnico</summary><pre>${esc(cru)}</pre></details></div>`);
+}
+function ok(t){
+  app.insertAdjacentHTML('afterbegin', `<div class="msg ok">${esc(t)}</div>`);
+  setTimeout(() => app.querySelector('.msg.ok')?.remove(), 4000);
+}
+async function rpc(fn, args){
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) throw error; return data;
+}
+async function sel(tab, cols, filtro){
+  let q = sb.from(tab).select(cols);
+  if (filtro) q = filtro(q);
+  const { data, error } = await q;
+  if (error) throw error; return data || [];
+}
+function modal(html, depois){
+  veuCx.innerHTML = html; veu.classList.add('on'); depois && depois();
+}
+function fechar(){ veu.classList.remove('on'); veuCx.innerHTML = ''; }
+veu.addEventListener('click', e => { if (e.target === veu) fechar(); });
+
+/* CSV com BOM e ponto-e-vírgula: abre direto no Excel em português. */
+function baixarCSV(nome, linhas){
+  const txt = linhas.map(l => l.map(c => {
+    const s = String(c ?? '').replace(/"/g,'""');
+    return /[";\n]/.test(s) ? `"${s}"` : s;
+  }).join(';')).join('\r\n');
+  const b = new Blob(['\ufeff' + txt], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = nome; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+}
+
+const S = { user:null, aba:'provas', turmas:[], prova:null, trabalho:null, monitorId:null };
+
+/* ══════════════════════════════════════════════════════════════════
+   PORTÃO
+   ══════════════════════════════════════════════════════════════════ */
+async function entrar(){
+  abas.innerHTML = ''; topoBtn.innerHTML = '';
+  app.innerHTML = `<div class="cx" style="max-width:420px">
+    <h2>Acesso do instrutor</h2>
+    <div class="campo"><label>E-mail</label><input type="email" id="m" autocomplete="username"></div>
+    <div class="campo"><label>Senha</label><input type="password" id="s" autocomplete="current-password"></div>
+    <div class="linha"><button class="btn solid" id="ir">Entrar</button>
+      <button class="btn" id="novo">Criar conta</button></div>
+    <p class="meta" style="margin-top:16px;text-transform:none;letter-spacing:.05em;line-height:1.7">
+      Primeira vez: crie a conta aqui, depois rode a seção 9 da migração 08 com este
+      mesmo e-mail para receber o papel de instrutor.</p>
+  </div>`;
+
+  const cred = () => ({ email: document.getElementById('m').value.trim(),
+                        password: document.getElementById('s').value });
+  document.getElementById('ir').onclick = async ev => {
+    ev.target.disabled = true;
+    try { const { error } = await sb.auth.signInWithPassword(cred());
+      if (error) throw error; rotear(); }
+    catch(e){ ev.target.disabled = false; erro(e); }
+  };
+  document.getElementById('novo').onclick = async ev => {
+    ev.target.disabled = true;
+    try { const { error } = await sb.auth.signUp(cred());
+      if (error) throw error; rotear(); }
+    catch(e){ ev.target.disabled = false; erro(e); }
+  };
+  document.getElementById('s').onkeydown = e => {
+    if (e.key === 'Enter') document.getElementById('ir').click(); };
+}
+
+async function rotear(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) return entrar();
+  S.user = session.user;
+
+  const eh = await rpc('pv_eh_instrutor');
+  if (!eh){
+    abas.innerHTML = '';
+    topoBtn.innerHTML = `<button class="btn" id="sair">Sair</button>`;
+    document.getElementById('sair').onclick = async () => {
+      await sb.auth.signOut(); location.reload(); };
+    app.innerHTML = `<div class="cx"><h2>Conta sem papel de instrutor</h2>
+      <p class="dim">A conta <b>${esc(S.user.email)}</b> existe, mas não está em
+        <code>pv_instrutor</code>. Rode no SQL Editor do Supabase:</p>
+      <pre style="font:11px/1.7 var(--mono);background:var(--void);border:1px solid var(--line);
+        padding:14px;margin-top:14px;overflow-x:auto;white-space:pre-wrap">insert into public.pv_instrutor (id, nome)
+select u.id, 'Giovani' from auth.users u
+ where lower(u.email) = lower('${esc(S.user.email)}')
+on conflict (id) do nothing;</pre>
+      <p class="meta" style="margin-top:12px;text-transform:none;letter-spacing:.05em">
+        Depois recarregue esta página.</p></div>`;
+    return;
+  }
+
+  S.turmas = await sel('pv_turma', 'id,nome,codigo,ativa', q => q.order('nome'));
+  pintarAbas();
+  render();
+}
+
+const ABAS = [
+  ['provas','Provas'], ['questoes','Questões'], ['aplicar','Aplicar'],
+  ['corrigir','Corrigir'], ['notas','Notas'], ['log','Ocorrências'],
+  ['trabalhos','Trabalhos'], ['rubricas','Rubricas'], ['turmas','Turmas']
+];
+function pintarAbas(){
+  abas.innerHTML = ABAS.map(([k,r]) =>
+    `<button data-k="${k}" class="${S.aba===k?'on':''}">${r}</button>`).join('');
+  abas.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+    S.aba = b.dataset.k; clearInterval(S.monitorId); pintarAbas(); render(); });
+  topoBtn.innerHTML = `<span class="meta">${esc(S.user.email)}</span>
+    <button class="btn mini" id="sair">Sair</button>`;
+  document.getElementById('sair').onclick = async () => {
+    await sb.auth.signOut(); location.reload(); };
+}
+
+function render(){
+  app.innerHTML = '<p class="vazio">Carregando…</p>';
+  ({ provas:telaProvas, questoes:telaQuestoes, aplicar:telaAplicar,
+     corrigir:telaCorrigir, notas:telaNotas, log:telaLog,
+     trabalhos:telaTrabalhos, rubricas:telaRubricas, turmas:telaTurmas
+   })[S.aba]().catch(erro);
+}
+const optTurmas = (sel_) => S.turmas.map(t =>
+  `<option value="${t.id}" ${sel_===t.id?'selected':''}>${esc(t.nome)}</option>`).join('');
+
+/* ══════════════════════════════════════════════════════════════════
+   PROVAS
+   ══════════════════════════════════════════════════════════════════ */
+async function telaProvas(){
+  const ps = await sel('pv_prova', '*', q => q.order('criada_em', { ascending:false }));
+  const mapa = Object.fromEntries(S.turmas.map(t => [t.id, t.nome]));
+  app.innerHTML = `
+    <div class="cx"><h2>Nova prova</h2>
+      <div class="grade g2">
+        <div><label>Turma</label><select id="nt">${optTurmas()}</select></div>
+        <div><label>Título</label><input id="ntit" placeholder="1ª Avaliação Parcial"></div>
+        <div><label>Duração (min)</label><input type="number" id="ndur" value="60"></div>
+        <div><label>Nota máxima</label><input type="number" id="nmax" value="10" step="0.5"></div>
+      </div>
+      <div class="linha"><button class="btn solid" id="criar">Criar prova</button></div>
+    </div>
+
+    <div class="cx"><h2>Provas (${ps.length})</h2>
+    ${ps.length ? `<div class="rolar"><table><thead><tr>
+      <th>Título</th><th>Turma</th><th>Estado</th><th>Duração</th><th>Nota</th><th>Encerra</th>
+    </tr></thead><tbody>${ps.map(p => `
+      <tr class="clica" data-id="${p.id}">
+        <td><b style="font-weight:400">${esc(p.titulo)}</b></td>
+        <td class="dim">${esc(mapa[p.turma_id]||'—')}</td>
+        <td><span class="selo ${p.estado==='liberada'?'viva':p.estado==='publicada'?'ok':''}">${p.estado}</span></td>
+        <td class="num dim">${p.duracao_min} min</td>
+        <td class="num dim">${num(p.nota_maxima,1)}</td>
+        <td class="num dim">${dt(p.encerra_em)}</td>
+      </tr>`).join('')}</tbody></table></div>` : `<p class="vazio">Nenhuma prova ainda</p>`}
+    </div>`;
+
+  document.getElementById('criar').onclick = async ev => {
+    const tit = document.getElementById('ntit').value.trim();
+    if (!tit) return erro(new Error('Informe o título.'));
+    ev.target.disabled = true;
+    try {
+      const { error } = await sb.from('pv_prova').insert({
+        turma_id: document.getElementById('nt').value, titulo: tit,
+        duracao_min: +document.getElementById('ndur').value || 60,
+        nota_maxima: +document.getElementById('nmax').value || 10 });
+      if (error) throw error;
+      ok('Prova criada.'); telaProvas();
+    } catch(e){ ev.target.disabled = false; erro(e); }
+  };
+  app.querySelectorAll('tr[data-id]').forEach(tr =>
+    tr.onclick = () => editarProva(ps.find(p => p.id === tr.dataset.id)));
+}
+
+function editarProva(p){
+  const trava = !['rascunho','selada'].includes(p.estado);
+  modal(`<h3 class="h3" style="margin-bottom:16px">${esc(p.titulo)}</h3>
+    ${trava ? `<div class="msg aviso">Prova já liberada — só instruções e nota máxima
+      continuam editáveis.</div>` : ''}
+    <div class="grade g2">
+      <div><label>Título</label><input id="e_tit" value="${esc(p.titulo)}" ${trava?'disabled':''}></div>
+      <div><label>Turma</label><select id="e_turma" ${trava?'disabled':''}>${optTurmas(p.turma_id)}</select></div>
+      <div><label>Duração (min)</label><input type="number" id="e_dur" value="${p.duracao_min}" ${trava?'disabled':''}></div>
+      <div><label>Nota máxima</label><input type="number" id="e_max" value="${p.nota_maxima}" step="0.5"></div>
+      <div><label>Questões por tela</label><input type="number" id="e_qpt" value="${p.questoes_por_tela}" min="1" ${trava?'disabled':''}></div>
+    </div>
+    <div class="campo" style="margin-top:12px"><label>Instruções ao cadete</label>
+      <textarea id="e_ins">${esc(p.instrucoes||'')}</textarea></div>
+    <div class="grade g2">
+      <label style="display:flex;gap:9px;align-items:center;text-transform:none;letter-spacing:.02em;font-size:.86rem;font-family:var(--body);color:var(--chart)">
+        <input type="checkbox" id="e_ea" style="width:16px" ${p.embaralhar_alternativas?'checked':''} ${trava?'disabled':''}> Embaralhar alternativas por cadete</label>
+      <label style="display:flex;gap:9px;align-items:center;text-transform:none;letter-spacing:.02em;font-size:.86rem;font-family:var(--body);color:var(--chart)">
+        <input type="checkbox" id="e_eq" style="width:16px" ${p.embaralhar_questoes?'checked':''} ${trava?'disabled':''}> Embaralhar ordem das questões</label>
+      <label style="display:flex;gap:9px;align-items:center;text-transform:none;letter-spacing:.02em;font-size:.86rem;font-family:var(--body);color:var(--chart)">
+        <input type="checkbox" id="e_tc" style="width:16px" ${p.tela_cheia_obrigatoria?'checked':''} ${trava?'disabled':''}> Exigir tela cheia</label>
+      <label style="display:flex;gap:9px;align-items:center;text-transform:none;letter-spacing:.02em;font-size:.86rem;font-family:var(--body);color:var(--chart)">
+        <input type="checkbox" id="e_pv" style="width:16px" ${p.permitir_voltar?'checked':''} ${trava?'disabled':''}> Permitir voltar às questões</label>
+    </div>
+    <div class="linha"><button class="btn" id="x">Fechar</button>
+      <button class="btn" id="qs">Editar questões</button>
+      <span class="dir"><button class="btn solid" id="sv">Salvar</button></span></div>`,
+  () => {
+    document.getElementById('x').onclick = fechar;
+    document.getElementById('qs').onclick = () => {
+      S.prova = p.id; fechar(); S.aba = 'questoes'; pintarAbas(); render(); };
+    document.getElementById('sv').onclick = async ev => {
+      ev.target.disabled = true;
+      const d = { nota_maxima:+document.getElementById('e_max').value,
+                  instrucoes:document.getElementById('e_ins').value };
+      if (!trava) Object.assign(d, {
+        titulo:document.getElementById('e_tit').value.trim(),
+        turma_id:document.getElementById('e_turma').value,
+        duracao_min:+document.getElementById('e_dur').value,
+        questoes_por_tela:+document.getElementById('e_qpt').value,
+        embaralhar_alternativas:document.getElementById('e_ea').checked,
+        embaralhar_questoes:document.getElementById('e_eq').checked,
+        tela_cheia_obrigatoria:document.getElementById('e_tc').checked,
+        permitir_voltar:document.getElementById('e_pv').checked });
+      try { const { error } = await sb.from('pv_prova').update(d).eq('id', p.id);
+        if (error) throw error; fechar(); ok('Prova salva.'); telaProvas(); }
+      catch(e){ ev.target.disabled = false; erro(e); }
+    };
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   QUESTÕES
+   ══════════════════════════════════════════════════════════════════ */
+async function telaQuestoes(){
+  const ps = await sel('pv_prova', 'id,titulo,estado,turma_id',
+    q => q.order('criada_em', { ascending:false }));
+  if (!ps.length) return app.innerHTML = `<p class="vazio">Crie uma prova primeiro</p>`;
+  if (!S.prova || !ps.find(p => p.id === S.prova)) S.prova = ps[0].id;
+  const p = ps.find(x => x.id === S.prova);
+  const qs = await rpc('pv_questoes_admin', { p_prova: S.prova });
+  const trava = !['rascunho','selada'].includes(p.estado);
+  const soma = qs.reduce((a,q) => a + Number(q.peso), 0);
+
+  app.innerHTML = `
+    <div class="cx"><div class="linha" style="margin:0">
+      <div style="flex:1;min-width:220px"><label>Prova</label><select id="sp">${ps.map(x =>
+        `<option value="${x.id}" ${x.id===S.prova?'selected':''}>${esc(x.titulo)} — ${x.estado}</option>`).join('')}</select></div>
+      <button class="btn solid" id="nova" ${trava?'disabled':''}>Nova questão</button>
+    </div>
+    ${trava ? `<div class="msg aviso" style="margin-top:14px">Prova liberada. Questões
+      bloqueadas para edição — é o que garante que ninguém altere a prova em andamento.</div>`
+      : `<p class="meta" style="margin-top:12px">${qs.length} questões · soma dos pesos ${num(soma,2)}</p>`}
+    </div>
+    ${qs.length ? qs.map(q => `
+      <div class="cx">
+        <div class="crit-cab" style="margin-bottom:10px">
+          <b>Questão ${q.ordem}</b>
+          <span class="selo ${q.tipo==='objetiva'?'':'alerta'}">${q.tipo}</span>
+          <span class="meta">peso ${num(q.peso,2)}</span>
+          <span class="dir linha" style="margin:0">
+            <button class="btn mini" data-ed="${q.id}" ${trava?'disabled':''}>Editar</button>
+            <button class="btn mini" data-del="${q.id}" ${trava?'disabled':''}>Excluir</button></span>
+        </div>
+        <p style="white-space:pre-wrap;font-size:.93rem">${esc(q.enunciado)}</p>
+        ${q.tipo === 'objetiva' ? `<div style="margin-top:10px">${(q.alternativas||[]).map(a =>
+          `<div style="padding:5px 0;font-size:.87rem;color:${a.id===q.gabarito?'var(--verde)':'var(--haze)'}">
+            <span class="num">${esc(a.id.toUpperCase())})</span> ${esc(a.texto)}
+            ${a.id===q.gabarito?'<span class="selo ok" style="margin-left:8px">gabarito</span>':''}</div>`).join('')}</div>`
+        : `${q.gabarito ? `<div style="margin-top:10px;padding:11px 13px;border-left:1px solid var(--verde);font-size:.87rem;white-space:pre-wrap">${esc(q.gabarito)}</div>` : ''}
+           ${q.criterio ? `<div style="margin-top:8px;padding:11px 13px;border-left:1px solid var(--ambar);font:11px/1.7 var(--mono);color:#DEC48A;white-space:pre-wrap">${esc(q.criterio)}</div>` : ''}`}
+      </div>`).join('') : `<p class="vazio">Nenhuma questão nesta prova</p>`}`;
+
+  document.getElementById('sp').onchange = e => { S.prova = e.target.value; render(); };
+  document.getElementById('nova').onclick = () => editarQuestao(null, qs.length + 1);
+  app.querySelectorAll('[data-ed]').forEach(b =>
+    b.onclick = () => editarQuestao(qs.find(q => q.id === b.dataset.ed)));
+  app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!confirm('Excluir esta questão?')) return;
+    try { const { error } = await sb.from('pv_questao').delete().eq('id', b.dataset.del);
+      if (error) throw error; ok('Questão excluída.'); render(); } catch(e){ erro(e); }
+  });
+}
+
+function editarQuestao(q, ordem){
+  const novo = !q;
+  const alts = q?.alternativas || [{id:'a',texto:''},{id:'b',texto:''},{id:'c',texto:''},{id:'d',texto:''}];
+  modal(`<h3 class="h3" style="margin-bottom:16px">${novo?'Nova questão':'Questão '+q.ordem}</h3>
+    <div class="grade g3">
+      <div><label>Ordem</label><input type="number" id="q_ord" value="${q?.ordem ?? ordem}"></div>
+      <div><label>Tipo</label><select id="q_tipo">
+        <option value="objetiva" ${q?.tipo==='objetiva'?'selected':''}>Objetiva</option>
+        <option value="aberta" ${q?.tipo==='aberta'?'selected':''}>Dissertativa</option></select></div>
+      <div><label>Peso</label><input type="number" id="q_peso" step="0.25" value="${q?.peso ?? 1}"></div>
+    </div>
+    <div class="campo" style="margin-top:12px"><label>Enunciado</label>
+      <textarea id="q_en">${esc(q?.enunciado||'')}</textarea></div>
+    <div id="q_obj"><label>Alternativas · marque o gabarito</label><div id="q_alts"></div>
+      <button class="btn mini" id="q_add" style="margin-top:8px">Acrescentar alternativa</button></div>
+    <div id="q_ab">
+      <div class="campo"><label>Resposta esperada (gabarito)</label>
+        <textarea id="q_gab">${esc(q && q.tipo==='aberta' ? (q.gabarito||'') : '')}</textarea></div>
+      <div class="campo"><label>Critérios ponderados — um por linha</label>
+        <textarea id="q_cri" placeholder="1.5 · negação; negação estratégica; destruir a capacidade militar&#10;1.0 · Pape; coerção&#10;1.5 · interdição; logística">${esc(q?.criterio||'')}</textarea>
+        <p class="meta" style="margin-top:6px;text-transform:none;letter-spacing:.04em;line-height:1.6">
+          Formato: <b>peso · termo; sinônimo; sinônimo</b>. Na correção o sistema procura os
+          termos na resposta e propõe a nota. A proposta nunca é publicada sem seu clique.</p></div>
+    </div>
+    <div class="linha"><button class="btn" id="x">Cancelar</button>
+      <span class="dir"><button class="btn solid" id="sv">Salvar questão</button></span></div>`,
+  () => {
+    const cxAlts = document.getElementById('q_alts');
+    let lista = alts.map(a => ({...a}));
+    let gab = q?.gabarito || 'a';
+    const pintar = () => {
+      cxAlts.innerHTML = lista.map((a,i) => `
+        <div class="linha" style="margin-top:7px;flex-wrap:nowrap">
+          <button class="btn mini ${gab===a.id?'solid':''}" data-g="${a.id}"
+            style="min-width:38px;justify-content:center">${esc(a.id.toUpperCase())}</button>
+          <input data-a="${a.id}" value="${esc(a.texto)}" placeholder="texto da alternativa">
+          <button class="btn mini" data-rm="${a.id}">×</button></div>`).join('');
+      cxAlts.querySelectorAll('[data-g]').forEach(b =>
+        b.onclick = () => { gab = b.dataset.g; pintar(); });
+      cxAlts.querySelectorAll('[data-a]').forEach(inp =>
+        inp.oninput = () => { lista.find(x => x.id === inp.dataset.a).texto = inp.value; });
+      cxAlts.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => {
+        if (lista.length <= 2) return;
+        lista = lista.filter(x => x.id !== b.dataset.rm);
+        if (gab === b.dataset.rm) gab = lista[0].id; pintar(); });
+    };
+    pintar();
+    document.getElementById('q_add').onclick = () => {
+      const prox = 'abcdefgh'.split('').find(l => !lista.some(x => x.id === l));
+      if (prox){ lista.push({ id:prox, texto:'' }); pintar(); }
+    };
+    const alternar = () => {
+      const t = document.getElementById('q_tipo').value;
+      document.getElementById('q_obj').style.display = t === 'objetiva' ? '' : 'none';
+      document.getElementById('q_ab').style.display  = t === 'aberta' ? '' : 'none';
+    };
+    document.getElementById('q_tipo').onchange = alternar; alternar();
+
+    document.getElementById('x').onclick = fechar;
+    document.getElementById('sv').onclick = async ev => {
+      const tipo = document.getElementById('q_tipo').value;
+      const en = document.getElementById('q_en').value.trim();
+      if (!en) return erro(new Error('Enunciado vazio.'));
+      if (tipo === 'objetiva' && lista.some(a => !a.texto.trim()))
+        return erro(new Error('Há alternativa sem texto.'));
+      ev.target.disabled = true;
+      try {
+        await rpc('pv_salvar_questao', {
+          p_id: q?.id ?? null, p_prova: S.prova,
+          p_ordem: +document.getElementById('q_ord').value,
+          p_tipo: tipo, p_enunciado: en,
+          p_peso: +document.getElementById('q_peso').value || 1,
+          p_alternativas: tipo === 'objetiva' ? lista : null,
+          p_gabarito: tipo === 'objetiva' ? gab : document.getElementById('q_gab').value,
+          p_criterio: tipo === 'aberta' ? document.getElementById('q_cri').value : null });
+        fechar(); ok('Questão salva.'); render();
+      } catch(e){ ev.target.disabled = false; erro(e); }
+    };
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   APLICAR — liberação e monitor ao vivo
+   ══════════════════════════════════════════════════════════════════ */
+async function telaAplicar(){
+  const ps = await sel('pv_prova', 'id,titulo,estado,turma_id,duracao_min,encerra_em',
+    q => q.order('criada_em', { ascending:false }));
+  if (!ps.length) return app.innerHTML = `<p class="vazio">Crie uma prova primeiro</p>`;
+  if (!S.prova || !ps.find(p => p.id === S.prova)) S.prova = ps[0].id;
+  const p = ps.find(x => x.id === S.prova);
+
+  app.innerHTML = `<div class="cx"><div class="linha" style="margin:0">
+      <div style="flex:1;min-width:220px"><label>Prova</label><select id="sp">${ps.map(x =>
+        `<option value="${x.id}" ${x.id===S.prova?'selected':''}>${esc(x.titulo)} — ${x.estado}</option>`).join('')}</select></div>
+      ${p.estado === 'liberada'
+        ? `<button class="btn" id="enc">Encerrar agora</button>`
+        : `<button class="btn solid" id="lib" ${['rascunho','selada'].includes(p.estado)?'':'disabled'}>Liberar prova</button>`}
+    </div>
+    ${p.encerra_em ? `<p class="meta" style="margin-top:12px">Encerra em ${dt(p.encerra_em)}</p>` : ''}
+    </div>
+    <div class="cx"><h2>Monitor</h2><div id="mon"><p class="vazio">Carregando…</p></div></div>`;
+
+  document.getElementById('sp').onchange = e => { S.prova = e.target.value; clearInterval(S.monitorId); render(); };
+  document.getElementById('lib')?.addEventListener('click', async ev => {
+    if (!confirm('Liberar a prova? Todos os cadetes da turma poderão começar imediatamente.')) return;
+    ev.target.disabled = true;
+    try { const r = await rpc('pv_liberar', { p_prova:S.prova });
+      ok(`Prova liberada · ${r.questoes} questões · encerra ${dt(r.encerra_em)}`);
+      clearInterval(S.monitorId); render(); }
+    catch(e){ ev.target.disabled = false; erro(e); }
+  });
+  document.getElementById('enc')?.addEventListener('click', async () => {
+    if (!confirm('Encerrar a prova para todos agora?')) return;
+    try { await rpc('pv_encerrar', { p_prova:S.prova }); ok('Prova encerrada.');
+      clearInterval(S.monitorId); render(); } catch(e){ erro(e); }
+  });
+
+  const monitor = async () => {
+    try {
+      const m = await sel('pv_v_monitor', '*', q =>
+        q.eq('prova_id', S.prova).order('nome_guerra'));
+      const alvo = document.getElementById('mon');
+      if (!alvo) return clearInterval(S.monitorId);
+      alvo.innerHTML = m.length ? `<div class="rolar"><table><thead><tr>
+        <th>Cadete</th><th>Estado</th><th>Progresso</th><th>Restam</th>
+        <th>Ocorrências</th><th>Aparelho</th></tr></thead><tbody>
+        ${m.map(r => `<tr>
+          <td><span class="pt ${r.estado==='em_andamento' && (Date.now()-new Date(r.ultimo_ping))<70000 ? 'on':'off'}"></span>${esc(r.nome_guerra)}</td>
+          <td><span class="selo ${r.estado==='entregue'?'ok':r.estado==='em_andamento'?'viva':''}">${r.estado.replace('_',' ')}</span></td>
+          <td class="num dim">${r.respondidas} / ${r.total_questoes}</td>
+          <td class="num">${r.estado==='em_andamento' ? Math.floor(r.segundos_restantes/60)+' min' : '—'}</td>
+          <td class="num">${r.violacoes ? `<span class="selo ${r.pior_severidade>=3?'viva':'alerta'}">${r.violacoes}</span>` : '<span class="dim">0</span>'}</td>
+          <td class="dim" style="font-size:.78rem">${r.ambiente?.tela_cheia === false ? '<span class="selo alerta">sem tela cheia</span>' : esc(r.ambiente?.plataforma || '—')}</td>
+        </tr>`).join('')}</tbody></table></div>
+        <p class="meta" style="margin-top:12px">${m.filter(x=>x.estado==='em_andamento').length} em prova ·
+          ${m.filter(x=>x.estado!=='em_andamento').length} entregues · atualiza a cada 10s</p>`
+        : `<p class="vazio">Ninguém iniciou ainda</p>`;
+    } catch(e){ clearInterval(S.monitorId); erro(e); }
+  };
+  monitor();
+  clearInterval(S.monitorId);
+  if (p.estado === 'liberada') S.monitorId = setInterval(monitor, 10000);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CORRIGIR — por questão, com proposta pelos critérios
+   ══════════════════════════════════════════════════════════════════ */
+function normalizar(t){
+  return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+function propor(criterio, resposta, peso){
+  const linhas = String(criterio||'').split('\n').map(l => l.trim()).filter(Boolean);
+  if (!linhas.length) return null;
+  const alvo = normalizar(resposta);
+  let total = 0, obtido = 0;
+  const achados = linhas.map(l => {
+    const [pRaw, termosRaw] = l.split('·');
+    const p = parseFloat(String(pRaw).replace(',','.')) || 1;
+    const termos = (termosRaw||'').split(';').map(t => t.trim()).filter(Boolean);
+    const hit = termos.find(t => alvo.includes(normalizar(t)));
+    total += p; if (hit) obtido += p;
+    return { peso:p, termos, hit: hit || null };
+  });
+  return { nota: total ? +(obtido / total * peso).toFixed(2) : null, achados, total, obtido };
+}
+
+async function telaCorrigir(){
+  const ps = await sel('pv_prova', 'id,titulo,estado,nota_maxima',
+    q => q.order('criada_em', { ascending:false }));
+  if (!ps.length) return app.innerHTML = `<p class="vazio">Crie uma prova primeiro</p>`;
+  if (!S.prova || !ps.find(p => p.id === S.prova)) S.prova = ps[0].id;
+  const qs = await rpc('pv_questoes_admin', { p_prova:S.prova });
+  const abertas = qs.filter(q => q.tipo === 'aberta');
+
+  app.innerHTML = `<div class="cx"><div class="linha" style="margin:0">
+      <div style="flex:1;min-width:220px"><label>Prova</label><select id="sp">${ps.map(x =>
+        `<option value="${x.id}" ${x.id===S.prova?'selected':''}>${esc(x.titulo)}</option>`).join('')}</select></div>
+      <button class="btn" id="auto">Corrigir objetivas e somar</button>
+    </div>
+    <p class="meta" style="margin-top:12px">${qs.length - abertas.length} objetivas corrigidas
+      automaticamente pelo gabarito · ${abertas.length} dissertativas exigem sua revisão</p></div>
+    ${abertas.length ? abertas.map(q => `
+      <div class="cx"><h2>Questão ${q.ordem} · peso ${num(q.peso,2)}</h2>
+        <p style="white-space:pre-wrap;font-size:.92rem;margin-bottom:6px">${esc(q.enunciado)}</p>
+        ${q.gabarito ? `<div style="padding:10px 12px;border-left:1px solid var(--verde);font-size:.85rem;white-space:pre-wrap;margin-bottom:12px">${esc(q.gabarito)}</div>` : ''}
+        <button class="btn solid" data-corr="${q.id}">Corrigir esta questão</button></div>`).join('')
+      : `<p class="vazio">Nenhuma dissertativa nesta prova</p>`}`;
+
+  document.getElementById('sp').onchange = e => { S.prova = e.target.value; render(); };
+  document.getElementById('auto').onclick = async ev => {
+    ev.target.disabled = true;
+    try { const r = await rpc('pv_fechar_notas', { p_prova:S.prova });
+      ok(`Objetivas corrigidas. ${r.abertas_pendentes} respostas dissertativas ainda sem nota.`);
+      ev.target.disabled = false; }
+    catch(e){ ev.target.disabled = false; erro(e); }
+  };
+  app.querySelectorAll('[data-corr]').forEach(b =>
+    b.onclick = () => corrigirQuestao(qs.find(q => q.id === b.dataset.corr)));
+}
+
+async function corrigirQuestao(q){
+  const linhas = await rpc('pv_respostas_da_questao', { p_questao:q.id, p_cega:false });
+  const props = linhas.map(l => propor(q.criterio, l.resposta, Number(q.peso)));
+
+  app.innerHTML = `<div class="cx"><div class="linha" style="margin:0">
+      <button class="btn" id="volta">← Voltar</button>
+      <span class="dir linha" style="margin:0">
+        ${q.criterio ? `<button class="btn" id="aceitar">Aceitar todas as propostas</button>` : ''}
+        <button class="btn solid" id="salvar">Salvar notas</button></span></div>
+    <h2 style="margin-top:16px">Questão ${q.ordem} · peso ${num(q.peso,2)} · ${linhas.length} respostas</h2>
+    <p style="white-space:pre-wrap;font-size:.92rem">${esc(q.enunciado)}</p>
+    ${q.gabarito ? `<div style="margin-top:10px;padding:10px 12px;border-left:1px solid var(--verde);font-size:.85rem;white-space:pre-wrap">${esc(q.gabarito)}</div>` : ''}
+    ${q.criterio ? `<div style="margin-top:8px;padding:10px 12px;border-left:1px solid var(--ambar);font:11px/1.7 var(--mono);color:#DEC48A;white-space:pre-wrap">${esc(q.criterio)}</div>` : ''}
+    </div>
+    ${linhas.map((l,i) => `
+      <div class="cx">
+        <div class="crit-cab" style="margin-bottom:10px">
+          <b>${esc(l.aluno || 'Cadete ' + (i+1))}</b>
+          ${props[i] ? `<span class="selo alerta">proposta ${num(props[i].nota,2)}</span>` : ''}
+          <span class="dir linha" style="margin:0">
+            <input type="number" step="0.25" min="0" max="${q.peso}" data-nota="${l.tentativa}"
+              value="${l.nota ?? ''}" style="width:92px;text-align:center"></span>
+        </div>
+        <div style="white-space:pre-wrap;font-size:.9rem;padding:12px 14px;border-left:1px solid var(--azimuth)">${esc(l.resposta || '— em branco —')}</div>
+        ${props[i] ? `<div class="linha" style="margin-top:9px;gap:6px">${props[i].achados.map(a =>
+          `<span class="selo ${a.hit?'ok':''}" title="${esc(a.termos.join('; '))}">${a.hit ? '✓ ' + esc(a.hit) : '✗ ' + esc(a.termos[0]||'')} · ${num(a.peso,1)}</span>`).join('')}</div>` : ''}
+        <div class="campo" style="margin-top:10px"><label>Comentário ao cadete</label>
+          <input data-com="${l.tentativa}" value="${esc(l.comentario||'')}"></div>
+      </div>`).join('')}`;
+
+  document.getElementById('volta').onclick = () => render();
+  document.getElementById('aceitar')?.addEventListener('click', () => {
+    linhas.forEach((l,i) => {
+      const el = app.querySelector(`[data-nota="${l.tentativa}"]`);
+      if (el && props[i] && props[i].nota != null) el.value = props[i].nota;
+    });
+    ok('Propostas aplicadas nos campos. Revise antes de salvar.');
+  });
+  document.getElementById('salvar').onclick = async ev => {
+    ev.target.disabled = true;
+    try {
+      for (const l of linhas){
+        const n = app.querySelector(`[data-nota="${l.tentativa}"]`).value;
+        const c = app.querySelector(`[data-com="${l.tentativa}"]`).value;
+        const { error } = await sb.from('pv_resposta').upsert({
+          tentativa_id: l.tentativa, questao_id: q.id,
+          nota: n === '' ? null : Number(n), comentario: c || null,
+          corrigida_em: new Date().toISOString() },
+          { onConflict:'tentativa_id,questao_id' });
+        if (error) throw error;
+      }
+      ok('Notas salvas. Rode "Corrigir objetivas e somar" para recalcular o total.');
+      ev.target.disabled = false;
+    } catch(e){ ev.target.disabled = false; erro(e); }
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   NOTAS
+   ══════════════════════════════════════════════════════════════════ */
+async function telaNotas(){
+  const ps = await sel('pv_prova', 'id,titulo,estado,nota_maxima',
+    q => q.order('criada_em', { ascending:false }));
+  if (!ps.length) return app.innerHTML = `<p class="vazio">Crie uma prova primeiro</p>`;
+  if (!S.prova || !ps.find(p => p.id === S.prova)) S.prova = ps[0].id;
+  const ns = await sel('pv_v_notas', '*', q => q.eq('prova_id', S.prova).order('nome_guerra'));
+
+  app.innerHTML = `<div class="cx"><div class="linha" style="margin:0">
+      <div style="flex:1;min-width:220px"><label>Prova</label><select id="sp">${ps.map(x =>
+        `<option value="${x.id}" ${x.id===S.prova?'selected':''}>${esc(x.titulo)}</option>`).join('')}</select></div>
+      <button class="btn" id="csv" ${ns.length?'':'disabled'}>Baixar CSV</button>
+      <button class="btn solid" id="pub" ${ns.length?'':'disabled'}>Publicar notas</button></div>
+    <p class="meta" style="margin-top:12px">Publicar libera nota e vista de prova para o cadete.
+      Faça isso só depois de revisar as dissertativas.</p></div>
+    <div class="cx"><h2>Notas (${ns.length})</h2>
+    ${ns.length ? `<div class="rolar"><table><thead><tr>
+      <th>Cadete</th><th>Turma</th><th>Nota</th><th>Estado</th><th>Entregue</th>
+      <th>Ocorrências</th><th>Publicada</th></tr></thead><tbody>
+      ${ns.map(r => `<tr>
+        <td>${esc(r.nome_guerra)}</td><td class="dim">${esc(r.turma)}</td>
+        <td class="num"><b style="font-weight:500">${num(r.nota_final,2)}</b>
+          <span class="dim"> / ${num(r.nota_maxima,1)}</span></td>
+        <td><span class="selo ${r.estado==='entregue'?'ok':''}">${r.estado.replace('_',' ')}</span></td>
+        <td class="num dim">${dt(r.entregue_em)}</td>
+        <td class="num">${r.violacoes ? `<span class="selo alerta">${r.violacoes}</span>` : '<span class="dim">0</span>'}</td>
+        <td>${r.publicada ? '<span class="selo ok">sim</span>' : '<span class="dim">não</span>'}</td>
+      </tr>`).join('')}</tbody></table></div>` : `<p class="vazio">Nenhuma tentativa</p>`}</div>`;
+
+  document.getElementById('sp').onchange = e => { S.prova = e.target.value; render(); };
+  document.getElementById('csv').onclick = () => baixarCSV(
+    `notas_${ns[0].titulo.replace(/\W+/g,'_')}.csv`,
+    [['Nome de guerra','Turma','E-mail','Nota','Nota máxima','Estado','Entregue em','Ocorrências'],
+     ...ns.map(r => [r.nome_guerra, r.turma, r.email, num(r.nota_final,2),
+       num(r.nota_maxima,1), r.estado, dt(r.entregue_em), r.violacoes])]);
+  document.getElementById('pub').onclick = async ev => {
+    if (!confirm('Publicar as notas para os cadetes? Eles passam a ver nota e vista de prova.')) return;
+    ev.target.disabled = true;
+    try { const r = await rpc('pv_publicar', { p_prova:S.prova });
+      ok(`${r.publicadas} notas publicadas.`); render(); }
+    catch(e){ ev.target.disabled = false; erro(e); }
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   OCORRÊNCIAS
+   ══════════════════════════════════════════════════════════════════ */
+const ROTULO = { oculta:'Aba oculta', foco:'Foco perdido', fullscreen:'Saiu da tela cheia',
+  copia:'Tentou copiar', colagem:'Colou texto', contexto:'Menu de contexto',
+  impressao:'Tentou imprimir', printscreen:'PrintScreen', captura:'Ferramenta de captura',
+  devtools:'Inspetor', saida:'Saiu da página', sessao_reaberta:'Reabriu em outro acesso',
+  marca_adulterada:'Adulterou a marca d\u0027água', telacheia_indisponivel:'Aparelho sem tela cheia' };
+
+async function telaLog(){
+  const ps = await sel('pv_prova', 'id,titulo', q => q.order('criada_em', { ascending:false }));
+  if (!ps.length) return app.innerHTML = `<p class="vazio">Crie uma prova primeiro</p>`;
+  if (!S.prova || !ps.find(p => p.id === S.prova)) S.prova = ps[0].id;
+  const vs = await sel('pv_v_violacoes', '*', q =>
+    q.eq('prova_id', S.prova).order('ocorrida_em', { ascending:false }));
+
+  const porCadete = {};
+  vs.forEach(v => {
+    porCadete[v.nome_guerra] = porCadete[v.nome_guerra] || { n:0, sev:0, tipos:{} };
+    const c = porCadete[v.nome_guerra];
+    c.n++; c.sev = Math.max(c.sev, v.severidade);
+    c.tipos[v.tipo] = (c.tipos[v.tipo]||0) + 1;
+  });
+
+  app.innerHTML = `<div class="cx"><div class="linha" style="margin:0">
+      <div style="flex:1;min-width:220px"><label>Prova</label><select id="sp">${ps.map(x =>
+        `<option value="${x.id}" ${x.id===S.prova?'selected':''}>${esc(x.titulo)}</option>`).join('')}</select></div>
+      <button class="btn" id="csv" ${vs.length?'':'disabled'}>Baixar log completo</button></div></div>
+
+    <div class="cx"><h2>Resumo por cadete</h2>
+    ${Object.keys(porCadete).length ? `<div class="rolar"><table><thead><tr>
+      <th>Cadete</th><th>Total</th><th>Gravidade</th><th>Tipos</th></tr></thead><tbody>
+      ${Object.entries(porCadete).sort((a,b) => b[1].n - a[1].n).map(([n,c]) => `<tr>
+        <td>${esc(n)}</td><td class="num">${c.n}</td>
+        <td><span class="selo ${c.sev>=3?'viva':c.sev===2?'alerta':''}">${c.sev>=3?'alta':c.sev===2?'média':'baixa'}</span></td>
+        <td style="font-size:.8rem" class="dim">${Object.entries(c.tipos).map(([t,q]) =>
+          `${esc(ROTULO[t]||t)} ×${q}`).join(' · ')}</td></tr>`).join('')}
+      </tbody></table></div>` : `<p class="vazio">Nenhuma ocorrência registrada</p>`}</div>
+
+    ${vs.length ? `<div class="cx"><h2>Registro cronológico (${vs.length})</h2>
+      <div class="rolar"><table><thead><tr>
+        <th>Horário</th><th>Cadete</th><th>Ocorrência</th><th>Duração</th></tr></thead><tbody>
+        ${vs.slice(0,400).map(v => `<tr>
+          <td class="num dim">${dt(v.ocorrida_em)}</td><td>${esc(v.nome_guerra)}</td>
+          <td><span class="selo ${v.severidade>=3?'viva':v.severidade===2?'alerta':''}">${esc(ROTULO[v.tipo]||v.tipo)}</span></td>
+          <td class="num dim">${v.duracao_ms ? (v.duracao_ms/1000).toFixed(1).replace('.',',')+'s' : '—'}</td>
+        </tr>`).join('')}</tbody></table></div>
+      ${vs.length > 400 ? `<p class="meta" style="margin-top:10px">Mostrando as 400 mais recentes. O CSV traz tudo.</p>` : ''}
+      </div>` : ''}`;
+
+  document.getElementById('sp').onchange = e => { S.prova = e.target.value; render(); };
+  document.getElementById('csv').onclick = () => baixarCSV(
+    `ocorrencias_${vs[0].titulo.replace(/\W+/g,'_')}.csv`,
+    [['Horário','Cadete','Turma','Ocorrência','Gravidade','Duração (s)','Detalhe'],
+     ...vs.map(v => [dt(v.ocorrida_em), v.nome_guerra, v.turma,
+       ROTULO[v.tipo]||v.tipo, v.severidade,
+       v.duracao_ms ? (v.duracao_ms/1000).toFixed(1) : '',
+       v.detalhe ? JSON.stringify(v.detalhe) : ''])]);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RUBRICAS
+   ══════════════════════════════════════════════════════════════════ */
+async function telaRubricas(){
+  const rs = await sel('pv_rubrica', '*', q => q.order('escopo').order('titulo'));
+  const cs = rs.length ? await sel('pv_rubrica_criterio', '*', q => q.order('ordem')) : [];
+
+  app.innerHTML = `<div class="cx"><h2>Nova rubrica</h2>
+      <div class="grade g2">
+        <div><label>Título</label><input id="r_tit" placeholder="Apresentação de trabalho em grupo"></div>
+        <div><label>Escopo</label><select id="r_esc">
+          <option value="grupo">Grupo — a apresentação como um todo</option>
+          <option value="individual">Individual — desempenho de cada cadete</option></select></div>
+      </div><div class="linha"><button class="btn solid" id="r_criar">Criar rubrica</button></div>
+      <p class="meta" style="margin-top:14px;text-transform:none;letter-spacing:.04em;line-height:1.7">
+        Monte aqui a rubrica do PLADIS. Cada critério tem peso e uma escala de níveis —
+        por exemplo Insuficiente 0, Regular 1, Bom 2, Excelente 3. A nota é normalizada
+        pelo teto de cada critério, então a escala pode ser qualquer uma.</p></div>
+
+    ${rs.map(r => {
+      const meus = cs.filter(c => c.rubrica_id === r.id);
+      return `<div class="cx">
+        <div class="crit-cab" style="margin-bottom:12px">
+          <b>${esc(r.titulo)}</b>
+          <span class="selo ${r.escopo==='grupo'?'viva':''}">${r.escopo}</span>
+          <span class="meta">${meus.length} critérios</span>
+          <span class="dir linha" style="margin:0">
+            <button class="btn mini" data-nc="${r.id}">Novo critério</button>
+            <button class="btn mini" data-rd="${r.id}">Excluir rubrica</button></span></div>
+        ${meus.length ? meus.map(c => `<div class="crit">
+          <div class="crit-cab"><b>${c.ordem}. ${esc(c.nome)}</b>
+            <span class="meta">peso ${num(c.peso,2)} · teto ${num(Math.max(0,
+              ...(c.niveis||[]).map(n => Number(n.valor)||0)),1)}</span>
+            <span class="dir linha" style="margin:0">
+              <button class="btn mini" data-ec="${c.id}">Editar</button>
+              <button class="btn mini" data-dc="${c.id}">×</button></span></div>
+          ${c.descricao ? `<p>${esc(c.descricao)}</p>` : ''}
+          <div class="niveis">${(c.niveis||[]).map(n =>
+            `<span class="niv"><b>${esc(n.valor)}</b><span>${esc(n.rotulo)}</span></span>`).join('')}</div>
+        </div>`).join('') : `<p class="vazio">Sem critérios</p>`}
+      </div>`;
+    }).join('')}`;
+
+  document.getElementById('r_criar').onclick = async ev => {
+    const t = document.getElementById('r_tit').value.trim();
+    if (!t) return erro(new Error('Informe o título.'));
+    ev.target.disabled = true;
+    try { const { error } = await sb.from('pv_rubrica').insert({ titulo:t,
+        escopo: document.getElementById('r_esc').value });
+      if (error) throw error; ok('Rubrica criada.'); render(); }
+    catch(e){ ev.target.disabled = false; erro(e); }
+  };
+  app.querySelectorAll('[data-nc]').forEach(b => b.onclick = () => {
+    const meus = cs.filter(c => c.rubrica_id === b.dataset.nc);
+    editarCriterio(null, b.dataset.nc, meus.length + 1); });
+  app.querySelectorAll('[data-ec]').forEach(b =>
+    b.onclick = () => editarCriterio(cs.find(c => c.id === b.dataset.ec)));
+  app.querySelectorAll('[data-dc]').forEach(b => b.onclick = async () => {
+    if (!confirm('Excluir este critério e todas as notas dadas nele?')) return;
+    try { const { error } = await sb.from('pv_rubrica_criterio').delete().eq('id', b.dataset.dc);
+      if (error) throw error; ok('Critério excluído.'); render(); } catch(e){ erro(e); }
+  });
+  app.querySelectorAll('[data-rd]').forEach(b => b.onclick = async () => {
+    if (!confirm('Excluir a rubrica inteira?')) return;
+    try { const { error } = await sb.from('pv_rubrica').delete().eq('id', b.dataset.rd);
+      if (error) throw error; ok('Rubrica excluída.'); render(); } catch(e){ erro(e); }
+  });
+}
+
+function editarCriterio(c, rubrica, ordem){
+  let niveis = c?.niveis?.length ? c.niveis.map(n => ({...n}))
+    : [{rotulo:'Insuficiente',valor:0,descricao:''},{rotulo:'Regular',valor:1,descricao:''},
+       {rotulo:'Bom',valor:2,descricao:''},{rotulo:'Excelente',valor:3,descricao:''}];
+  modal(`<h3 class="h3" style="margin-bottom:16px">${c?'Editar critério':'Novo critério'}</h3>
+    <div class="grade g3">
+      <div><label>Ordem</label><input type="number" id="c_ord" value="${c?.ordem ?? ordem}"></div>
+      <div><label>Peso</label><input type="number" step="0.25" id="c_peso" value="${c?.peso ?? 1}"></div>
+    </div>
+    <div class="campo" style="margin-top:12px"><label>Nome do critério</label>
+      <input id="c_nome" value="${esc(c?.nome||'')}" placeholder="Domínio do conteúdo"></div>
+    <div class="campo"><label>Descrição</label>
+      <textarea id="c_desc" style="min-height:60px">${esc(c?.descricao||'')}</textarea></div>
+    <label>Níveis da escala</label><div id="c_niv"></div>
+    <button class="btn mini" id="c_add" style="margin-top:8px">Acrescentar nível</button>
+    <div class="linha"><button class="btn" id="x">Cancelar</button>
+      <span class="dir"><button class="btn solid" id="sv">Salvar critério</button></span></div>`,
+  () => {
+    const cx = document.getElementById('c_niv');
+    const pintar = () => {
+      cx.innerHTML = niveis.map((n,i) => `
+        <div class="linha" style="margin-top:7px;flex-wrap:nowrap">
+          <input data-nv="${i}" type="number" step="0.5" value="${n.valor}" style="width:82px;text-align:center">
+          <input data-nr="${i}" value="${esc(n.rotulo)}" placeholder="rótulo">
+          <input data-nd="${i}" value="${esc(n.descricao||'')}" placeholder="descrição (opcional)">
+          <button class="btn mini" data-nx="${i}">×</button></div>`).join('');
+      cx.querySelectorAll('[data-nv]').forEach(e => e.oninput = () => niveis[+e.dataset.nv].valor = Number(e.value));
+      cx.querySelectorAll('[data-nr]').forEach(e => e.oninput = () => niveis[+e.dataset.nr].rotulo = e.value);
+      cx.querySelectorAll('[data-nd]').forEach(e => e.oninput = () => niveis[+e.dataset.nd].descricao = e.value);
+      cx.querySelectorAll('[data-nx]').forEach(e => e.onclick = () => {
+        if (niveis.length > 2){ niveis.splice(+e.dataset.nx,1); pintar(); } });
+    };
+    pintar();
+    document.getElementById('c_add').onclick = () => {
+      niveis.push({ rotulo:'', valor: niveis.length, descricao:'' }); pintar(); };
+    document.getElementById('x').onclick = fechar;
+    document.getElementById('sv').onclick = async ev => {
+      const nome = document.getElementById('c_nome').value.trim();
+      if (!nome) return erro(new Error('Informe o nome do critério.'));
+      ev.target.disabled = true;
+      const d = { rubrica_id: c?.rubrica_id ?? rubrica,
+        ordem:+document.getElementById('c_ord').value, nome,
+        descricao: document.getElementById('c_desc').value || null,
+        peso:+document.getElementById('c_peso').value || 1,
+        niveis: niveis.filter(n => String(n.rotulo).trim()) };
+      try {
+        const { error } = c
+          ? await sb.from('pv_rubrica_criterio').update(d).eq('id', c.id)
+          : await sb.from('pv_rubrica_criterio').insert(d);
+        if (error) throw error; fechar(); ok('Critério salvo.'); render();
+      } catch(e){ ev.target.disabled = false; erro(e); }
+    };
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TRABALHOS EM GRUPO
+   ══════════════════════════════════════════════════════════════════ */
+async function telaTrabalhos(){
+  if (S.trabalho) return avaliarTrabalho(S.trabalho);
+  const turma = S.turmaSel || S.turmas[0]?.id;
+  S.turmaSel = turma;
+  if (!turma) return app.innerHTML = `<p class="vazio">Nenhuma turma cadastrada</p>`;
+
+  const ts = await sel('pv_trabalho', '*', q => q.eq('turma_id', turma).order('numero'));
+  const ms = await sel('pv_trabalho_membro', 'trabalho_id,aluno_id');
+  const cont = {}; ms.forEach(m => cont[m.trabalho_id] = (cont[m.trabalho_id]||0) + 1);
+
+  app.innerHTML = `<div class="cx"><div class="linha" style="margin:0">
+      <div style="flex:1;min-width:200px"><label>Turma</label>
+        <select id="st">${optTurmas(turma)}</select></div></div>
+    <p class="meta" style="margin-top:12px">${ts.length} trabalhos · temas e aulas conforme o PLADIS</p></div>
+    <div class="cx"><div class="rolar"><table><thead><tr>
+      <th>#</th><th>Aula</th><th>Tema</th><th>Membros</th><th>Estado</th></tr></thead><tbody>
+      ${ts.map(t => `<tr class="clica" data-t="${t.id}">
+        <td class="num"><b style="font-weight:500">${t.numero}</b></td>
+        <td class="num dim">${t.aula ?? '—'}</td>
+        <td style="max-width:520px;font-size:.87rem">${esc(t.tema)}</td>
+        <td class="num">${cont[t.id] ? cont[t.id] : '<span class="dim">0</span>'}</td>
+        <td><span class="selo ${t.estado==='publicado'?'ok':t.estado==='avaliado'?'alerta':''}">${t.estado}</span></td>
+      </tr>`).join('')}</tbody></table></div></div>`;
+
+  document.getElementById('st').onchange = e => { S.turmaSel = e.target.value; render(); };
+  app.querySelectorAll('[data-t]').forEach(tr =>
+    tr.onclick = () => { S.trabalho = tr.dataset.t; render(); });
+}
+
+async function avaliarTrabalho(id){
+  const d = await rpc('pv_trabalho_detalhe', { p_trabalho:id });
+  const t = d.trabalho;
+  const rubs = await sel('pv_rubrica', 'id,titulo,escopo', q => q.order('titulo'));
+  const alunos = await sel('pv_aluno', 'id,nome_guerra', q =>
+    q.eq('turma_id', t.turma_id).order('nome_guerra'));
+  const jaMembro = new Set(d.membros.map(m => m.aluno_id));
+
+  const optRub = (esc_, v) => `<option value="">— nenhuma —</option>` + rubs
+    .filter(r => r.escopo === esc_)
+    .map(r => `<option value="${r.id}" ${v===r.id?'selected':''}>${esc(r.titulo)}</option>`).join('');
+
+  const blocoCrit = (c, escopoIndiv, alunoId) => `
+    <div class="crit">
+      <div class="crit-cab"><b>${c.ordem}. ${esc(c.nome)}</b>
+        <span class="meta">peso ${num(c.peso,2)}</span></div>
+      ${c.descricao ? `<p>${esc(c.descricao)}</p>` : ''}
+      <div class="niveis">${(c.niveis||[]).map(n => {
+        const atual = escopoIndiv
+          ? d.membros.find(m => m.aluno_id === alunoId)?.notas?.[c.id]?.valor
+          : c.valor;
+        return `<button class="niv ${Number(atual) === Number(n.valor) ? 'on':''}"
+          data-crit="${c.id}" data-val="${n.valor}"
+          ${escopoIndiv ? `data-aluno="${alunoId}"` : 'data-grupo="1"'}
+          title="${esc(n.descricao||'')}"><b>${esc(n.valor)}</b><span>${esc(n.rotulo)}</span></button>`;
+      }).join('')}</div>
+    </div>`;
+
+  app.innerHTML = `
+    <div class="cx"><div class="linha" style="margin:0">
+      <button class="btn" id="volta">← Trabalhos</button>
+      <span class="dir"><button class="btn solid" id="salvar">Salvar avaliação</button></span></div>
+      <h2 style="margin-top:16px">Grupo ${t.numero} · ${esc(d.turma)} · aula ${t.aula ?? '—'}</h2>
+      <p style="font-size:.9rem;color:var(--haze);line-height:1.6">${esc(t.tema)}</p>
+      <div class="grade g2" style="margin-top:16px">
+        <div><label>Rubrica do grupo</label><select id="rg">${optRub('grupo', t.rubrica_grupo)}</select></div>
+        <div><label>Rubrica individual</label><select id="ri">${optRub('individual', t.rubrica_individual)}</select></div>
+        <div><label>Peso do grupo (%)</label><input type="number" id="pg" value="${t.peso_grupo}"></div>
+        <div><label>Peso individual (%)</label><input type="number" id="pi" value="${t.peso_individual}"></div>
+        <div><label>Nota máxima</label><input type="number" id="nm" step="0.5" value="${t.nota_maxima}"></div>
+        <div><label>Data da apresentação</label><input type="date" id="da" value="${t.data_apresentacao||''}"></div>
+      </div>
+      <div class="linha"><button class="btn mini" id="salvarCfg">Aplicar configuração</button>
+        <span class="meta">Os pesos precisam somar 100</span></div>
+    </div>
+
+    <div class="cx"><h2>Membros do grupo (${d.membros.length})</h2>
+      <div class="linha" style="margin:0">
+        <div style="flex:1;min-width:200px"><select id="addAl">
+          <option value="">— acrescentar cadete —</option>
+          ${alunos.filter(a => !jaMembro.has(a.id)).map(a =>
+            `<option value="${a.id}">${esc(a.nome_guerra)}</option>`).join('')}
+        </select></div><button class="btn" id="add">Incluir</button></div>
+      ${d.membros.length ? `<div class="linha" style="gap:7px">${d.membros.map(m =>
+        `<span class="selo viva">${esc(m.nome_guerra)}
+          <button data-rm="${m.aluno_id}" style="margin-left:7px;color:inherit">×</button></span>`).join('')}</div>`
+        : `<p class="vazio">Nenhum cadete neste grupo</p>`}
+    </div>
+
+    <div class="cx"><h2>Apresentação do grupo</h2>
+      ${d.criterios_grupo.length ? d.criterios_grupo.map(c => blocoCrit(c, false)).join('')
+        : `<p class="vazio">Escolha uma rubrica de grupo acima</p>`}
+      <div class="campo" style="margin-top:14px"><label>Observação geral ao grupo</label>
+        <textarea id="obs">${esc(t.observacao||'')}</textarea></div>
+    </div>
+
+    ${d.criterios_individual.length && d.membros.length ? d.membros.map(m => `
+      <div class="membro"><div class="membro-cab"><b>${esc(m.nome_guerra)}</b>
+        <span class="meta dir">desempenho individual</span></div>
+        ${d.criterios_individual.map(c => blocoCrit(c, true, m.aluno_id)).join('')}
+      </div>`).join('')
+      : d.membros.length ? `<div class="cx"><p class="vazio">Escolha uma rubrica individual acima</p></div>` : ''}`;
+
+  /* seleção de níveis */
+  const sel_g = {}, sel_i = {};
+  d.criterios_grupo.forEach(c => { if (c.valor != null) sel_g[c.id] = Number(c.valor); });
+  d.membros.forEach(m => Object.entries(m.notas || {}).forEach(([cid, v]) => {
+    sel_i[m.aluno_id + '|' + cid] = Number(v.valor); }));
+
+  app.querySelectorAll('.niv[data-crit]').forEach(b => b.onclick = () => {
+    const grupo = b.dataset.grupo === '1';
+    const chave = grupo ? b.dataset.crit : b.dataset.aluno + '|' + b.dataset.crit;
+    const alvo = grupo ? sel_g : sel_i;
+    const val = Number(b.dataset.val);
+    if (alvo[chave] === val) delete alvo[chave]; else alvo[chave] = val;
+    const irmaos = grupo
+      ? app.querySelectorAll(`.niv[data-grupo="1"][data-crit="${b.dataset.crit}"]`)
+      : app.querySelectorAll(`.niv[data-aluno="${b.dataset.aluno}"][data-crit="${b.dataset.crit}"]`);
+    irmaos.forEach(x => x.classList.remove('on'));
+    if (alvo[chave] != null) b.classList.add('on');
+  });
+
+  document.getElementById('volta').onclick = () => { S.trabalho = null; render(); };
+  document.getElementById('salvarCfg').onclick = async ev => {
+    const pg = +document.getElementById('pg').value, pi = +document.getElementById('pi').value;
+    if (pg + pi !== 100) return erro(new Error('Os pesos precisam somar 100.'));
+    ev.target.disabled = true;
+    try { const { error } = await sb.from('pv_trabalho').update({
+        rubrica_grupo: document.getElementById('rg').value || null,
+        rubrica_individual: document.getElementById('ri').value || null,
+        peso_grupo:pg, peso_individual:pi,
+        nota_maxima:+document.getElementById('nm').value || 10,
+        data_apresentacao: document.getElementById('da').value || null }).eq('id', id);
+      if (error) throw error; ok('Configuração aplicada.'); render(); }
+    catch(e){ ev.target.disabled = false; erro(e); }
+  };
+  document.getElementById('add').onclick = async () => {
+    const a = document.getElementById('addAl').value;
+    if (!a) return;
+    try { const { error } = await sb.from('pv_trabalho_membro')
+        .insert({ trabalho_id:id, aluno_id:a });
+      if (error) throw error; render(); } catch(e){ erro(e); }
+  };
+  app.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
+    try { const { error } = await sb.from('pv_trabalho_membro').delete()
+        .eq('trabalho_id', id).eq('aluno_id', b.dataset.rm);
+      if (error) throw error; render(); } catch(e){ erro(e); }
+  });
+  document.getElementById('salvar').onclick = async ev => {
+    ev.target.disabled = true;
+    try {
+      await sb.from('pv_trabalho').update({ observacao: document.getElementById('obs').value })
+        .eq('id', id);
+      await rpc('pv_salvar_avaliacao', { p_trabalho:id,
+        p_grupo: Object.entries(sel_g).map(([c,v]) => ({ criterio:c, valor:v })),
+        p_individual: Object.entries(sel_i).map(([k,v]) => {
+          const [aluno, criterio] = k.split('|'); return { aluno, criterio, valor:v }; }) });
+      ok('Avaliação salva.'); ev.target.disabled = false;
+    } catch(e){ ev.target.disabled = false; erro(e); }
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TURMAS
+   ══════════════════════════════════════════════════════════════════ */
+async function telaTurmas(){
+  const als = await sel('pv_aluno', 'id,nome_guerra,email,turma_id,ativo,criado_em',
+    q => q.order('nome_guerra'));
+  const cont = {}; als.forEach(a => cont[a.turma_id] = (cont[a.turma_id]||0) + 1);
+
+  app.innerHTML = `<div class="cx"><h2>Turmas e códigos de cadastro</h2>
+    <div class="rolar"><table><thead><tr><th>Turma</th><th>Código</th><th>Cadetes</th>
+      <th>Ativa</th></tr></thead><tbody>
+      ${S.turmas.map(t => `<tr>
+        <td>${esc(t.nome)}</td>
+        <td><input value="${esc(t.codigo)}" data-cod="${t.id}" maxlength="6"
+          style="width:110px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase"></td>
+        <td class="num">${cont[t.id]||0}</td>
+        <td>${t.ativa ? '<span class="selo ok">sim</span>' : '<span class="dim">não</span>'}</td>
+      </tr>`).join('')}</tbody></table></div>
+    <div class="linha"><button class="btn solid" id="svc">Salvar códigos</button>
+      <button class="btn" id="csv">Baixar lista de cadetes</button></div>
+    <p class="meta" style="margin-top:12px;text-transform:none;letter-spacing:.04em">
+      O código é o que amarra o cadastro do cadete à turma certa. Seis caracteres,
+      letras e números. Troque a cada ano.</p></div>
+
+    <div class="cx"><h2>Cadetes cadastrados (${als.length})</h2>
+    ${als.length ? `<div class="rolar"><table><thead><tr>
+      <th>Nome de guerra</th><th>Turma</th><th>E-mail</th><th>Cadastro</th></tr></thead><tbody>
+      ${als.map(a => `<tr><td>${esc(a.nome_guerra)}</td>
+        <td class="dim">${esc(S.turmas.find(t => t.id === a.turma_id)?.nome || '—')}</td>
+        <td class="dim" style="font-size:.82rem">${esc(a.email)}</td>
+        <td class="num dim">${dt(a.criado_em)}</td></tr>`).join('')}
+      </tbody></table></div>` : `<p class="vazio">Nenhum cadete se cadastrou ainda</p>`}</div>`;
+
+  document.getElementById('svc').onclick = async ev => {
+    ev.target.disabled = true;
+    try {
+      for (const inp of app.querySelectorAll('[data-cod]')){
+        const v = inp.value.trim().toUpperCase();
+        if (!/^[A-Z0-9]{6}$/.test(v)) throw new Error(`Código inválido: ${v} (6 letras/números)`);
+        const { error } = await sb.from('pv_turma').update({ codigo:v }).eq('id', inp.dataset.cod);
+        if (error) throw error;
+      }
+      S.turmas = await sel('pv_turma', 'id,nome,codigo,ativa', q => q.order('nome'));
+      ok('Códigos salvos.'); ev.target.disabled = false;
+    } catch(e){ ev.target.disabled = false; erro(e); }
+  };
+  document.getElementById('csv').onclick = () => baixarCSV('cadetes.csv',
+    [['Nome de guerra','Turma','E-mail','Cadastro'],
+     ...als.map(a => [a.nome_guerra,
+       S.turmas.find(t => t.id === a.turma_id)?.nome || '', a.email, dt(a.criado_em)])]);
+}
+
+/* ══════════════════════════════════════════════════════════════════ */
+rotear().catch(e => { app.innerHTML = ''; erro(e); });
+</script>
+</body>
+</html>
