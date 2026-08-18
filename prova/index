@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>POAE · Avaliação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Barlow:ital,wght@0,300;0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#070A0F; --deck:#0C1219; --line:#1B2733;
+  --chart:#E6DECB; --haze:#8494A5; --vfr:#C2506B; --azimuth:#4A87BC;
+  --display:"Cinzel",Georgia,serif;
+  --body:"Barlow",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --gut:clamp(20px,5vw,64px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--void);color:var(--chart);font-family:var(--body);font-weight:300;
+  font-size:clamp(15px,1.05vw,17px);line-height:1.6;-webkit-font-smoothing:antialiased;
+  overflow-x:hidden}
+a{color:inherit}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+::selection{background:var(--vfr);color:var(--void)}
+:focus-visible{outline:1px solid var(--vfr);outline-offset:3px}
+
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--haze)}
+.h1{font-family:var(--display);font-weight:400;text-transform:uppercase;letter-spacing:.02em;
+  line-height:1;font-size:clamp(1.7rem,4.2vw,2.9rem)}
+.h3{font-family:var(--display);text-transform:uppercase;line-height:1.06;
+  font-size:clamp(1.05rem,2vw,1.4rem);letter-spacing:.03em}
+.lede{color:#C3BBA9;max-width:52ch}
+.meta{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:#4E5F70}
+
+/* ─── moldura ─── */
+.casca{position:relative;z-index:1;width:min(880px,100%);margin:0 auto;
+  padding:clamp(28px,6vh,64px) var(--gut) clamp(60px,10vh,110px)}
+.volta{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.18em;text-transform:uppercase;color:#4E5F70;text-decoration:none;margin-bottom:26px}
+.volta:hover{color:var(--vfr)}
+.topo{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:30px}
+.topo .h1{margin-top:12px}
+
+.cx{border:1px solid var(--line);background:var(--deck);padding:clamp(20px,3vw,30px);
+  margin-bottom:16px}
+.cx + .cx{margin-top:0}
+.cx h2{font-family:var(--display);text-transform:uppercase;font-size:1.05rem;letter-spacing:.04em;
+  margin-bottom:16px;font-weight:400}
+
+label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--haze);margin-bottom:7px;margin-top:16px}
+label:first-of-type{margin-top:0}
+input[type=text],input[type=email],input[type=password],textarea{
+  width:100%;background:var(--void);border:1px solid var(--line);color:var(--chart);
+  padding:13px 14px;transition:border-color .25s}
+input:focus,textarea:focus{outline:none;border-color:var(--vfr)}
+input::placeholder,textarea::placeholder{color:#3A4D62}
+textarea{resize:vertical;min-height:170px;line-height:1.65}
+.caixaalta{text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  padding:13px 22px;border:1px solid var(--line);font-family:var(--mono);font-size:10px;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--chart);
+  transition:background .3s,color .3s,border-color .3s}
+.btn:hover:not(:disabled){border-color:#33475C}
+.btn.solid{background:var(--vfr);border-color:var(--vfr);color:#fff}
+.btn.solid:hover:not(:disabled){background:#a8425a;border-color:#a8425a}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.larga{width:100%;margin-top:20px}
+.linhabtn{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+
+.abas{display:flex;border-bottom:1px solid var(--line);margin-bottom:24px}
+.abas button{padding:12px 20px;font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+  text-transform:uppercase;color:#4E5F70;border-bottom:1px solid transparent;margin-bottom:-1px}
+.abas button.on{color:var(--chart);border-bottom-color:var(--vfr)}
+
+.msg{padding:12px 15px;font-size:.9rem;margin-bottom:16px;border:1px solid}
+.msg.err{background:rgba(194,80,107,.08);border-color:rgba(194,80,107,.4);color:#E9AFBC}
+.msg.ok{background:rgba(111,168,138,.08);border-color:rgba(111,168,138,.35);color:#9FD2B7}
+.msg.aviso{background:rgba(200,162,74,.07);border-color:rgba(200,162,74,.34);color:#DEC48A}
+.msg details{margin-top:8px}
+.msg summary{cursor:pointer;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  text-transform:uppercase;opacity:.7}
+.msg pre{white-space:pre-wrap;word-break:break-word;font:11px/1.5 var(--mono);
+  margin-top:6px;opacity:.75}
+
+/* ─── checagem do aparelho ─── */
+.check{display:flex;gap:12px;align-items:flex-start;padding:12px 0;
+  border-bottom:1px solid var(--line)}
+.check:last-child{border-bottom:0}
+.check i{flex:none;width:18px;height:18px;border:1px solid var(--line);margin-top:2px;
+  display:grid;place-items:center;font-style:normal;font-size:11px;font-family:var(--mono)}
+.check.ok i{border-color:#6FA88A;color:#6FA88A}
+.check.nao i{border-color:var(--vfr);color:var(--vfr)}
+.check.alerta i{border-color:#C8A24A;color:#C8A24A}
+.check b{display:block;font-weight:400;font-size:.94rem}
+.check span{display:block;font-size:.84rem;color:var(--haze);line-height:1.5}
+
+.termo{font-size:.9rem;color:#C3BBA9;line-height:1.7}
+.termo ul{list-style:none;margin:14px 0}
+.termo li{padding:7px 0 7px 20px;position:relative;font-size:.88rem}
+.termo li::before{content:"";position:absolute;left:0;top:16px;width:9px;height:1px;
+  background:var(--vfr)}
+.aceite{display:flex;gap:12px;align-items:flex-start;margin-top:22px;padding-top:20px;
+  border-top:1px solid var(--line);cursor:pointer}
+.aceite input{flex:none;width:17px;height:17px;margin-top:3px;accent-color:var(--vfr)}
+.aceite span{font-size:.9rem;color:#C3BBA9}
+
+/* ─── barra da prova ─── */
+.barra{position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(7,10,15,.94);
+  border-bottom:1px solid var(--line);backdrop-filter:blur(10px);
+  display:flex;align-items:center;gap:clamp(12px,3vw,28px);
+  padding:11px var(--gut);font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase}
+.barra .nome{color:var(--chart);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.barra .passo{color:#4E5F70;white-space:nowrap}
+.relogio{margin-left:auto;font-size:16px;letter-spacing:.06em;color:var(--chart);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.relogio.pouco{color:var(--vfr)}
+.relogio.pouco::after{content:"";display:inline-block;width:5px;height:5px;background:var(--vfr);
+  margin-left:8px;vertical-align:middle;animation:pulso 1s steps(2,end) infinite}
+@keyframes pulso{50%{opacity:0}}
+.sinal{display:flex;align-items:center;gap:7px;color:var(--haze);white-space:nowrap}
+.sinal i{width:6px;height:6px;background:#6FA88A;border-radius:50%;display:block}
+.sinal.off i{background:var(--vfr)}
+.sinal.salvando i{background:#C8A24A}
+.trilho{position:fixed;top:0;left:0;right:0;height:1px;z-index:51;background:transparent}
+.trilho i{display:block;height:1px;background:var(--vfr);width:0;transition:width .4s ease}
+body.emprova{padding-top:52px}
+@media(max-width:640px){
+  .barra{font-size:9px;gap:10px;padding:9px var(--gut)}
+  .relogio{font-size:14px}
+  .barra .nome{display:none}
+}
+
+/* ─── questões ─── */
+.qcab{display:flex;align-items:baseline;gap:14px;padding-bottom:12px;
+  border-bottom:1px solid var(--line);margin-bottom:20px}
+.qcab b{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--vfr);
+  font-weight:400}
+.qcab span{font-family:var(--mono);font-size:10px;letter-spacing:.13em;color:#4E5F70;
+  margin-left:auto;text-transform:uppercase}
+.enun{font-size:1.03rem;color:var(--chart);line-height:1.65;white-space:pre-wrap;
+  margin-bottom:24px}
+.enun img{max-width:100%;margin-top:16px;border:1px solid var(--line)}
+
+.alt{display:flex;gap:14px;align-items:flex-start;width:100%;text-align:left;
+  padding:15px 17px;border:1px solid var(--line);margin-bottom:9px;
+  transition:border-color .25s,background .25s}
+.alt:hover{border-color:#33475C}
+.alt u{flex:none;font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--haze);
+  text-decoration:none;width:16px;padding-top:2px}
+.alt p{font-size:.97rem;line-height:1.55}
+.alt.marcada{border-color:var(--vfr);background:rgba(194,80,107,.07)}
+.alt.marcada u{color:var(--vfr)}
+.contador{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:#4E5F70;
+  text-align:right;margin-top:8px;text-transform:uppercase}
+
+.paginacao{display:flex;gap:10px;align-items:center;margin-top:30px;padding-top:22px;
+  border-top:1px solid var(--line);flex-wrap:wrap}
+.paginacao .dir{margin-left:auto;display:flex;gap:10px}
+.mapa{display:flex;gap:6px;flex-wrap:wrap;margin-top:22px}
+.mapa button{width:30px;height:30px;border:1px solid var(--line);font-family:var(--mono);
+  font-size:10px;color:#4E5F70;transition:all .2s}
+.mapa button.feita{color:var(--chart);border-color:#33475C}
+.mapa button.aqui{border-color:var(--vfr);color:var(--vfr)}
+
+/* ─── marca d'água (assinatura da tela) ─── */
+.marca{position:fixed;inset:0;z-index:40;pointer-events:none;user-select:none;
+  transition:opacity .6s ease}
+.marca svg{width:100%;height:100%;display:block}
+
+/* ─── cortina e véu ─── */
+.cortina{position:fixed;inset:0;z-index:80;background:var(--void);opacity:0;
+  pointer-events:none;transition:opacity .12s linear}
+.cortina.on{opacity:1;pointer-events:all}
+.veu{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;
+  padding:24px;background:rgba(4,6,10,.95);backdrop-filter:blur(10px)}
+.veu.on{display:flex}
+.veu-cx{width:min(520px,100%);border:1px solid var(--line);background:var(--deck);
+  padding:clamp(24px,4vw,38px);text-align:center}
+.veu-cx .h3{margin-bottom:14px}
+.veu-cx p{color:#C3BBA9;font-size:.94rem;margin-bottom:6px}
+.veu-cx .linhabtn{justify-content:center}
+
+/* ─── vista de prova ─── */
+.item{border:1px solid var(--line);padding:clamp(18px,2.6vw,26px);margin-bottom:14px}
+.item .cab{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.item .cab b{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--vfr);
+  font-weight:400}
+.item .cab em{margin-left:auto;font-style:normal;font-family:var(--mono);font-size:12px;
+  color:var(--chart)}
+.resp{padding:13px 15px;border-left:1px solid var(--line);margin-top:12px;font-size:.93rem;
+  white-space:pre-wrap;line-height:1.6}
+.resp.minha{border-left-color:var(--azimuth)}
+.resp.certa{border-left-color:#6FA88A}
+.resp.coment{border-left-color:#C8A24A;color:#DEC48A}
+.resp i{display:block;font-style:normal;font-family:var(--mono);font-size:9px;
+  letter-spacing:.2em;text-transform:uppercase;margin-bottom:6px;color:var(--haze)}
+.nota{display:flex;align-items:baseline;gap:14px;padding:clamp(20px,3vw,28px);
+  border:1px solid var(--vfr);background:rgba(194,80,107,.06);margin-bottom:22px}
+.nota b{font-family:var(--display);font-size:clamp(2.2rem,6vw,3.4rem);line-height:1;
+  color:var(--chart);font-weight:400}
+.nota span{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--haze)}
+
+@media print{body{display:none !important}}
+@media(prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+
+<div class="trilho"><i id="trilho"></i></div>
+<div class="marca" id="marca" aria-hidden="true"></div>
+<div class="cortina" id="cortina" aria-hidden="true"></div>
+
+<div class="veu" id="veu" role="dialog" aria-modal="true">
+  <div class="veu-cx" id="veuCx"></div>
+</div>
+
+<div class="casca" id="app"><p class="meta">Carregando…</p></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://ykkgybnsdmkqewjqkhfm.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_aqYO6MH3-cbK9K_azQ0G0A_0jYqopbW';
+const SITE = '/';
+
+const sb   = createClient(SUPABASE_URL, SUPABASE_KEY);
+const app  = document.getElementById('app');
+const veu  = document.getElementById('veu');
+const veuCx= document.getElementById('veuCx');
+
+/* ══════════════════════════════════════════════════════════════════
+   MENSAGENS — erro cru do Postgres não serve para um cadete em prova.
+   ══════════════════════════════════════════════════════════════════ */
+const ERROS = {
+  SESSAO_INVALIDA : 'Esta prova foi aberta em outro dispositivo ou em outra aba.',
+  PROVA_ENCERRADA : 'Sua prova já foi encerrada.',
+  PRAZO_ESGOTADO  : 'O tempo da prova acabou.',
+  'Invalid login credentials'  : 'E-mail ou senha incorretos.',
+  'User already registered'    : 'Já existe conta com esse e-mail. Use "Entrar".',
+  'Email not confirmed'        : 'Conta ainda não confirmada. Procure o instrutor.',
+  'Password should be at least 6 characters' : 'A senha precisa ter ao menos 6 caracteres.'
+};
+
+const esc = s => String(s ?? '').replace(/[<>&"]/g,
+  c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+function blocoErro(e){
+  const cru = e?.message || String(e);
+  const cod = cru.match(/[A-Z_]{6,}/);
+  const amigavel = (cod && ERROS[cod[0]]) || ERROS[cru] ||
+    (cru.length < 140 && /[a-záéíóúâêôãõç]/i.test(cru) ? cru : 'Algo falhou. Detalhes abaixo.');
+  return `<div class="msg err">${esc(amigavel)}
+    <details><summary>detalhe técnico</summary><pre>${esc(cru)}</pre></details></div>`;
+}
+function mostrarErro(e){
+  console.error(e);
+  const alvo = app.querySelector('.cx') || app;
+  alvo.insertAdjacentHTML('afterbegin', blocoErro(e));
+}
+
+async function rpc(fn, args){
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) throw error;
+  return data;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ESTADO
+   ══════════════════════════════════════════════════════════════════ */
+const S = {
+  user:null, sit:null, tentativa:null, token:null, conteudo:null,
+  respostas:{}, pagina:0, seg:0, tickId:null, pingId:null,
+  sujo:new Map(), flushId:null, salvando:false, travado:false, ambiente:null
+};
+
+const chaveLocal = () => 'poae_prova_' + S.tentativa;
+const hhmmss = s => {
+  s = Math.max(0, s|0);
+  return String(s/3600|0).padStart(2,'0') + ':' +
+         String((s/60|0)%60).padStart(2,'0') + ':' +
+         String(s%60).padStart(2,'0');
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   MARCA D'ÁGUA — a assinatura desta tela.
+   Não impede o print. Faz o print apontar para quem o tirou.
+   ══════════════════════════════════════════════════════════════════ */
+const marca = {
+  el: document.getElementById('marca'),
+  txt1:null, txt2:null, pat:null, giroId:null, relId:null, guardaId:null,
+  obs:null, base:'',
+
+  ligar(nome, turma, tent){
+    this.base = `${nome} · ${turma}`;
+    const curto = String(tent).slice(0,8).toUpperCase();
+    this.desenhar(curto);
+    this.relId = setInterval(() => this.hora(), 1000);
+    this.giroId = setInterval(() => this.girar(), 7000);
+    this.guardaId = setInterval(() => this.conferir(curto), 3000);
+    this.vigiar(curto);
+  },
+
+  desenhar(curto){
+    this.el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="mdp" width="330" height="152" patternUnits="userSpaceOnUse"
+                 patternTransform="rotate(-27) translate(0,0)">
+          <text x="0" y="20" font-family="IBM Plex Mono, monospace" font-size="12.5"
+                letter-spacing="2.4" fill="#E6DECB" fill-opacity="0.062">${esc(this.base)}</text>
+          <text x="0" y="41" font-family="IBM Plex Mono, monospace" font-size="10.5"
+                letter-spacing="1.8" fill="#C2506B" fill-opacity="0.075">--:--:-- · ${esc(curto)}</text>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#mdp)"/></svg>`;
+    const t = this.el.querySelectorAll('text');
+    this.txt1 = t[0]; this.txt2 = t[1];
+    this.pat = this.el.querySelector('pattern');
+    this.hora();
+  },
+
+  hora(){
+    if (!this.txt2) return;
+    const agora = new Date().toLocaleTimeString('pt-BR', { hour12:false });
+    this.txt2.textContent = agora + this.txt2.textContent.slice(8);
+  },
+
+  girar(){
+    if (!this.pat) return;
+    const dx = (Math.random()*160)|0, dy = (Math.random()*90)|0;
+    const ang = -27 + (Math.random()*8 - 4);
+    this.pat.setAttribute('patternTransform', `rotate(${ang.toFixed(1)}) translate(${dx},${dy})`);
+  },
+
+  /* Se alguém apagar ou esconder a camada pelo inspetor, ela volta e fica registrado. */
+  conferir(curto){
+    const c = getComputedStyle(this.el);
+    const sumiu = !this.el.isConnected || !this.el.querySelector('text')
+               || c.display === 'none' || c.visibility === 'hidden'
+               || parseFloat(c.opacity) < 0.5;
+    if (sumiu){
+      this.el.style.cssText = '';
+      this.el.setAttribute('style','position:fixed;inset:0;z-index:40;pointer-events:none');
+      if (!this.el.isConnected) document.body.appendChild(this.el);
+      this.desenhar(curto);
+      vigia.registrar('marca_adulterada', null, { obs:'camada de identificação restaurada' });
+    }
+  },
+
+  vigiar(curto){
+    this.obs = new MutationObserver(() => this.conferir(curto));
+    this.obs.observe(document.body, { childList:true });
+  },
+
+  desligar(){
+    clearInterval(this.relId); clearInterval(this.giroId); clearInterval(this.guardaId);
+    this.obs && this.obs.disconnect();
+    this.el.innerHTML = '';
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   VIGIA — os detectores. Só existem enquanto a prova está aberta.
+   ══════════════════════════════════════════════════════════════════ */
+const vigia = {
+  ativo:false, pausado:false, ocultoEm:null, foraEm:null, semFsEm:null,
+  fila:[], listeners:[],
+
+  ligar(){
+    if (this.ativo) return;
+    this.ativo = true;
+    const on = (alvo, ev, fn, op) => { alvo.addEventListener(ev, fn, op);
+      this.listeners.push([alvo, ev, fn, op]); };
+
+    /* aba oculta */
+    on(document, 'visibilitychange', () => {
+      if (document.hidden){ this.ocultoEm = Date.now(); this.foraEm = null; }
+      else if (this.ocultoEm){
+        this.registrar('oculta', Date.now() - this.ocultoEm);
+        this.ocultoEm = null;
+        this.flushLocal();
+      }
+    });
+
+    /* foco perdido — só conta se a aba NÃO ficou oculta (senão é o mesmo evento) */
+    on(window, 'blur', () => {
+      if (this.pausado) return;
+      this.foraEm = Date.now();
+      setTimeout(() => { if (document.hidden) this.foraEm = null; }, 300);
+      salvarTudo();
+    });
+    on(window, 'focus', () => {
+      if (this.foraEm){
+        const d = Date.now() - this.foraEm;
+        if (d > 250) this.registrar('foco', d);
+        this.foraEm = null;
+      }
+    });
+
+    /* tela cheia */
+    on(document, 'fullscreenchange', () => {
+      if (!S.conteudo?.tela_cheia || !telaCheiaDisponivel()) return;
+      if (!document.fullscreenElement){
+        this.semFsEm = Date.now();
+        abrirVeu(`<span class="eyebrow">Fora da tela cheia</span>
+          <div class="h3" style="margin-top:12px">Volte à tela cheia para continuar.</div>
+          <p>A saída foi registrada com horário e duração. Suas respostas estão salvas.</p>
+          <div class="linhabtn"><button class="btn solid" id="voltarFs">Voltar à tela cheia</button></div>`,
+          () => { document.getElementById('voltarFs').onclick = () => pedirTelaCheia(); });
+      } else if (this.semFsEm){
+        this.registrar('fullscreen', Date.now() - this.semFsEm);
+        this.semFsEm = null; fecharVeu();
+      }
+    });
+
+    /* teclado */
+    on(document, 'keydown', e => {
+      const k = (e.key || '').toUpperCase();
+      if (k === 'PRINTSCREEN'){ e.preventDefault(); }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && k === 'S'){
+        this.registrar('captura', null, { atalho:'Meta+Shift+S' }); cortinar(900);
+      }
+      if ((e.metaKey || e.ctrlKey) && k === 'P'){
+        e.preventDefault(); this.registrar('impressao', null, { atalho:'Ctrl+P' });
+      }
+      if (k === 'F12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && ['I','J','C'].includes(k))){
+        e.preventDefault(); this.registrar('devtools', null, { atalho:k });
+      }
+    }, true);
+
+    on(document, 'keyup', e => {
+      if ((e.key || '').toUpperCase() === 'PRINTSCREEN'){
+        this.registrar('printscreen'); cortinar(700); sujarAreaTransferencia();
+      }
+    }, true);
+
+    /* cópia, recorte, colagem, menu de contexto */
+    on(document, 'copy',  e => { e.preventDefault(); this.registrar('copia'); });
+    on(document, 'cut',   e => { e.preventDefault(); this.registrar('copia'); });
+    on(document, 'paste', e => { this.registrar('colagem', null,
+        { tamanho:(e.clipboardData?.getData('text')||'').length }); });
+    on(document, 'contextmenu', e => { e.preventDefault(); this.registrar('contexto'); });
+
+    /* seleção livre fora dos campos de resposta */
+    on(document, 'selectstart', e => {
+      if (!e.target.closest('textarea, input')) e.preventDefault();
+    });
+
+    /* inspetor aberto por arraste da janela */
+    on(window, 'resize', () => {
+      const d = Math.abs(window.outerWidth - window.innerWidth) > 190
+             || Math.abs(window.outerHeight - window.innerHeight) > 190;
+      if (d && !this._dev){ this._dev = true; this.registrar('devtools', null, { via:'geometria' }); }
+      if (!d) this._dev = false;
+    });
+
+    /* tentativa de sair */
+    on(window, 'beforeunload', e => {
+      if (!S.travado){ salvarTudo(); e.preventDefault(); e.returnValue = ''; }
+    });
+    on(window, 'pagehide', () => this.registrar('saida'));
+  },
+
+  desligar(){
+    this.ativo = false;
+    this.listeners.forEach(([a,ev,fn,op]) => a.removeEventListener(ev, fn, op));
+    this.listeners = [];
+  },
+
+  /* Registro à prova de queda: se a rede falhar, guarda e reenvia depois. */
+  async registrar(tipo, duracao_ms, detalhe){
+    if (!S.tentativa) return;
+    const carga = { p_tentativa:S.tentativa, p_tipo:tipo,
+                    p_duracao_ms:duracao_ms ? Math.round(duracao_ms) : null,
+                    p_detalhe:detalhe || null };
+    try { await rpc('pv_violacao', carga); }
+    catch(e){ this.fila.push(carga); console.warn('violação enfileirada', tipo); }
+  },
+
+  async flushLocal(){
+    while (this.fila.length){
+      const c = this.fila[0];
+      try { await rpc('pv_violacao', c); this.fila.shift(); }
+      catch(e){ break; }
+    }
+  }
+};
+
+function telaCheiaDisponivel(){
+  return !!(document.documentElement.requestFullscreen);
+}
+async function pedirTelaCheia(){
+  if (!telaCheiaDisponivel()) return false;
+  try { await document.documentElement.requestFullscreen({ navigationUI:'hide' }); return true; }
+  catch(e){ return false; }
+}
+function cortinar(ms){
+  const c = document.getElementById('cortina');
+  c.classList.add('on');
+  setTimeout(() => c.classList.remove('on'), ms);
+}
+async function sujarAreaTransferencia(){
+  try { await navigator.clipboard.writeText(
+    'Captura de tela durante avaliação POAE — registrada em ' +
+    new Date().toLocaleString('pt-BR')); } catch(e){}
+}
+
+function abrirVeu(html, depois){
+  vigia.pausado = true;
+  veuCx.innerHTML = html;
+  veu.classList.add('on');
+  depois && depois();
+}
+function fecharVeu(){
+  veu.classList.remove('on');
+  veuCx.innerHTML = '';
+  setTimeout(() => { vigia.pausado = false; }, 400);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   AUTOSAVE
+   ══════════════════════════════════════════════════════════════════ */
+function sinal(estado){
+  const el = document.getElementById('sinal');
+  if (!el) return;
+  el.className = 'sinal' + (estado === 'off' ? ' off' : estado === 'salvando' ? ' salvando' : '');
+  el.querySelector('span').textContent =
+    estado === 'off' ? 'sem conexão' : estado === 'salvando' ? 'salvando' : 'salvo';
+}
+
+function marcarResposta(qid, valor){
+  S.respostas[qid] = valor;
+  S.sujo.set(qid, valor);
+  try { localStorage.setItem(chaveLocal(), JSON.stringify(S.respostas)); } catch(e){}
+  clearTimeout(S.flushId);
+  S.flushId = setTimeout(salvarTudo, 1200);
+  pintarTrilho();
+}
+
+async function salvarTudo(){
+  if (!S.sujo.size || S.salvando || !S.tentativa) return;
+  S.salvando = true; sinal('salvando');
+  const lote = [...S.sujo.entries()];
+  try {
+    for (const [qid, valor] of lote){
+      await rpc('pv_salvar', { p_tentativa:S.tentativa, p_questao:qid,
+                               p_valor:valor, p_token:S.token });
+      S.sujo.delete(qid);
+    }
+    sinal('ok');
+    vigia.flushLocal();
+  } catch(e){
+    const m = e?.message || '';
+    if (m.includes('SESSAO_INVALIDA')) return travar('SESSAO_INVALIDA');
+    if (m.includes('PRAZO_ESGOTADO') || m.includes('PROVA_ENCERRADA')) return encerrarPorTempo();
+    sinal('off');
+  } finally { S.salvando = false; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CRONÔMETRO — o servidor manda. O relógio local só interpola.
+   ══════════════════════════════════════════════════════════════════ */
+function pintarRelogio(){
+  const r = document.getElementById('relogio');
+  if (!r) return;
+  r.textContent = hhmmss(S.seg);
+  r.classList.toggle('pouco', S.seg <= 300);
+}
+function pintarTrilho(){
+  const t = document.getElementById('trilho');
+  if (!t || !S.conteudo) return;
+  const total = S.conteudo.questoes.length;
+  const feitas = S.conteudo.questoes.filter(q =>
+    String(S.respostas[q.id] ?? '').trim() !== '').length;
+  t.style.width = (feitas / Math.max(1,total) * 100) + '%';
+}
+
+function iniciarRelogio(){
+  clearInterval(S.tickId); clearInterval(S.pingId);
+  S.tickId = setInterval(() => {
+    if (S.travado) return;
+    S.seg = Math.max(0, S.seg - 1);
+    pintarRelogio();
+    if (S.seg === 0) encerrarPorTempo();
+  }, 1000);
+  S.pingId = setInterval(async () => {
+    if (S.travado) return;
+    try {
+      const p = await rpc('pv_ping', { p_tentativa:S.tentativa, p_token:S.token });
+      if (!p.sessao_valida) return travar('SESSAO_INVALIDA');
+      S.seg = p.segundos_restantes;
+      pintarRelogio();
+      sinal('ok');
+      if (p.estado !== 'em_andamento') return encerrarPorTempo();
+    } catch(e){ sinal('off'); }
+  }, 20000);
+}
+
+function travar(motivo){
+  S.travado = true;
+  clearInterval(S.tickId); clearInterval(S.pingId);
+  vigia.desligar(); marca.desligar();
+  abrirVeu(`<span class="eyebrow">Prova bloqueada</span>
+    <div class="h3" style="margin-top:12px">${esc(ERROS[motivo] || 'Prova bloqueada.')}</div>
+    <p>Suas respostas até aqui estão salvas. Chame o instrutor.</p>`);
+}
+
+async function encerrarPorTempo(){
+  if (S.travado) return;
+  S.travado = true;
+  clearInterval(S.tickId); clearInterval(S.pingId);
+  await salvarTudo().catch(()=>{});
+  try { await rpc('pv_entregar', { p_tentativa:S.tentativa, p_token:S.token }); } catch(e){}
+  sair();
+  telaEntregue(true);
+}
+
+function sair(){
+  vigia.desligar(); marca.desligar();
+  document.body.classList.remove('emprova');
+  if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  fecharVeu();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TELAS
+   ══════════════════════════════════════════════════════════════════ */
+const cabecalho = (olho, titulo) => `
+  <a class="volta" href="${SITE}">← Curso de Poder Aeroespacial</a>
+  <div class="topo"><span class="eyebrow">${esc(olho)}</span>
+    <h1 class="h1">${esc(titulo)}</h1></div>`;
+
+/* ── entrada ─────────────────────────────────────────────────────── */
+function telaEntrada(aba = 'entrar'){
+  app.innerHTML = cabecalho('Avaliação · POAE 2026', 'Identifique-se.') + `
+    <div class="cx">
+      <div class="abas">
+        <button data-aba="entrar" class="${aba==='entrar'?'on':''}">Entrar</button>
+        <button data-aba="criar"  class="${aba==='criar'?'on':''}">Criar conta</button>
+      </div>
+      <div id="form"></div>
+    </div>`;
+
+  app.querySelectorAll('[data-aba]').forEach(b =>
+    b.onclick = () => telaEntrada(b.dataset.aba));
+
+  const f = document.getElementById('form');
+  if (aba === 'entrar'){
+    f.innerHTML = `
+      <label>E-mail</label><input type="email" id="mail" autocomplete="username">
+      <label>Senha</label><input type="password" id="senha" autocomplete="current-password">
+      <button class="btn solid larga" id="ir">Entrar</button>
+      <p class="meta" style="margin-top:16px;text-transform:none;letter-spacing:.06em">
+        Esqueceu a senha? Fale com o instrutor antes da prova.</p>`;
+    const ir = document.getElementById('ir');
+    ir.onclick = async () => {
+      ir.disabled = true;
+      try {
+        const { error } = await sb.auth.signInWithPassword({
+          email: document.getElementById('mail').value.trim(),
+          password: document.getElementById('senha').value });
+        if (error) throw error;
+        rotear();
+      } catch(e){ ir.disabled = false; mostrarErro(e); }
+    };
+    document.getElementById('senha').onkeydown = e => { if (e.key==='Enter') ir.click(); };
+  } else {
+    f.innerHTML = `
+      <label>E-mail</label><input type="email" id="mail" autocomplete="email">
+      <label>Senha</label><input type="password" id="senha" autocomplete="new-password"
+        placeholder="mínimo 6 caracteres">
+      <label>Repita a senha</label><input type="password" id="senha2" autocomplete="new-password">
+      <button class="btn solid larga" id="ir">Criar conta</button>
+      <p class="meta" style="margin-top:16px;text-transform:none;letter-spacing:.06em">
+        No passo seguinte você informa o nome de guerra e o código da turma.</p>`;
+    const ir = document.getElementById('ir');
+    ir.onclick = async () => {
+      const s1 = document.getElementById('senha').value;
+      const s2 = document.getElementById('senha2').value;
+      if (s1 !== s2) return mostrarErro(new Error('As senhas não conferem.'));
+      ir.disabled = true;
+      try {
+        const { error } = await sb.auth.signUp({
+          email: document.getElementById('mail').value.trim(), password: s1 });
+        if (error) throw error;
+        rotear();
+      } catch(e){ ir.disabled = false; mostrarErro(e); }
+    };
+  }
+}
+
+/* ── perfil ──────────────────────────────────────────────────────── */
+function telaPerfil(){
+  app.innerHTML = cabecalho('Avaliação · POAE 2026', 'Seu registro.') + `
+    <div class="cx">
+      <p class="lede" style="margin-bottom:8px">O nome de guerra é o que aparece na sua prova,
+        na marca d'água e no boletim. Ele é gravado em caixa alta.</p>
+      <label>Nome de guerra</label>
+      <input type="text" id="ng" class="caixaalta" maxlength="30" placeholder="ANDRADE"
+        autocomplete="off" spellcheck="false">
+      <label>Código da turma</label>
+      <input type="text" id="cod" class="caixaalta" maxlength="6" placeholder="POAEA1"
+        autocomplete="off" spellcheck="false">
+      <p class="meta" style="margin-top:9px;text-transform:none;letter-spacing:.06em">
+        O instrutor informa o código em sala.</p>
+      <button class="btn solid larga" id="ir">Confirmar registro</button>
+      <div class="linhabtn"><button class="btn" id="sairc">Sair desta conta</button></div>
+    </div>`;
+
+  const ng = document.getElementById('ng');
+  ng.oninput = () => { ng.value = ng.value.toUpperCase(); };
+  const cod = document.getElementById('cod');
+  cod.oninput = () => { cod.value = cod.value.toUpperCase().replace(/[^A-Z0-9]/g,''); };
+
+  document.getElementById('ir').onclick = async (ev) => {
+    ev.target.disabled = true;
+    try {
+      await rpc('pv_cadastrar', { p_nome_guerra:ng.value, p_codigo_turma:cod.value });
+      rotear();
+    } catch(e){ ev.target.disabled = false; mostrarErro(e); }
+  };
+  document.getElementById('sairc').onclick = async () => {
+    await sb.auth.signOut(); location.reload();
+  };
+}
+
+/* ── espera ──────────────────────────────────────────────────────── */
+let esperaId = null;
+function telaEspera(){
+  const s = S.sit;
+  const p = s.prova;
+  app.innerHTML = cabecalho('Avaliação · POAE 2026', p ? p.titulo : 'Sem prova aberta.') + `
+    <div class="cx">
+      <div class="check ok"><i>✓</i><b>${esc(s.nome_guerra)}</b>
+        <span>${esc(s.turma)}</span></div>
+    </div>
+    <div class="cx" id="estado"></div>
+    <div class="linhabtn"><button class="btn" id="sairc">Sair desta conta</button></div>`;
+
+  const alvo = document.getElementById('estado');
+  if (!p){
+    alvo.innerHTML = `<h2>Nenhuma prova liberada</h2>
+      <p class="lede">Quando o instrutor liberar a avaliação da sua turma, esta tela muda
+        sozinha. Deixe-a aberta.</p>`;
+  } else if (p.estado === 'liberada'){
+    alvo.innerHTML = `<h2>Prova liberada</h2>
+      <p class="lede">${esc(p.instrucoes || 'Leia o termo na próxima tela antes de começar.')}</p>
+      <p class="meta" style="margin-top:14px">Duração ${p.duracao_min} minutos</p>
+      <button class="btn solid larga" id="ir">${
+        s.tentativa ? 'Retomar a prova' : 'Ler o termo e começar'}</button>`;
+    document.getElementById('ir').onclick = () =>
+      s.tentativa ? retomar() : telaTermo();
+  } else if (s.tentativa?.publicada){
+    alvo.innerHTML = `<h2>Resultado disponível</h2>
+      <p class="lede">Sua nota e a vista de prova já podem ser consultadas.</p>
+      <button class="btn solid larga" id="ir">Ver resultado</button>`;
+    document.getElementById('ir').onclick = telaResultado;
+  } else {
+    alvo.innerHTML = `<h2>Prova encerrada</h2>
+      <p class="lede">A avaliação foi encerrada. A nota aparece aqui quando o instrutor
+        publicar a correção.</p>`;
+  }
+
+  document.getElementById('sairc').onclick = async () => {
+    await sb.auth.signOut(); location.reload();
+  };
+
+  clearInterval(esperaId);
+  esperaId = setInterval(async () => {
+    try {
+      const nova = await rpc('pv_minha_situacao');
+      const antes = JSON.stringify([S.sit.prova, S.sit.tentativa]);
+      S.sit = nova;
+      if (JSON.stringify([nova.prova, nova.tentativa]) !== antes) telaEspera();
+    } catch(e){}
+  }, 15000);
+}
+
+/* ── termo e checagem do aparelho ────────────────────────────────── */
+function telaTermo(){
+  clearInterval(esperaId);
+  const fs = telaCheiaDisponivel();
+  const deriva = Math.abs(Date.now() - new Date(S.sit.servidor_agora).getTime()) / 1000;
+
+  S.ambiente = {
+    navegador: navigator.userAgent, plataforma: navigator.platform || '',
+    tela: `${screen.width}x${screen.height}`, janela: `${innerWidth}x${innerHeight}`,
+    telas: (screen.isExtended === true) ? 'múltiplas' : 'única',
+    tela_cheia: fs, deriva_relogio_s: Math.round(deriva),
+    idioma: navigator.language, fuso: Intl.DateTimeFormat().resolvedOptions().timeZone
+  };
+
+  const item = (cls, ic, t, sub) =>
+    `<div class="check ${cls}"><i>${ic}</i><div><b>${t}</b><span>${sub}</span></div></div>`;
+
+  app.innerHTML = cabecalho('Antes de começar', 'Termo e conferência.') + `
+    <div class="cx">
+      <h2>Seu aparelho</h2>
+      ${item('ok','✓','Conexão com o servidor','Respondendo normalmente.')}
+      ${item(deriva > 90 ? 'alerta':'ok', deriva > 90 ? '!':'✓', 'Relógio',
+        deriva > 90 ? `Seu relógio está ${Math.round(deriva)}s fora do servidor. O tempo da prova é contado pelo servidor.`
+                    : 'Sincronizado com o servidor.')}
+      ${item(fs ? 'ok':'alerta', fs ? '✓':'!', 'Tela cheia',
+        fs ? 'Disponível. A prova será exibida em tela cheia obrigatória.'
+           : 'Este navegador não oferece tela cheia. A saída da prova continuará sendo registrada por outros meios, e a limitação constará do seu log.')}
+      ${item(screen.isExtended === true ? 'alerta':'ok', screen.isExtended === true ? '!':'✓',
+        'Monitores', screen.isExtended === true
+          ? 'Mais de uma tela detectada. Desconecte a segunda antes de começar.'
+          : 'Uma tela.')}
+    </div>
+
+    <div class="cx">
+      <h2>Termo de avaliação monitorada</h2>
+      <div class="termo">
+        <p>Durante esta prova, o sistema registra automaticamente:</p>
+        <ul>
+          <li>troca de aba, minimização da janela e perda de foco, com horário e duração;</li>
+          <li>saída do modo de tela cheia;</li>
+          <li>tentativa de copiar, colar, imprimir, abrir o inspetor ou capturar a tela;</li>
+          <li>abertura da prova em outro dispositivo.</li>
+        </ul>
+        <p>A tela exibe seu nome de guerra, sua turma e o horário em marca d'água contínua.
+          Qualquer imagem capturada carrega essa identificação.</p>
+        <p>Os registros ficam disponíveis ao instrutor e integram a ata da avaliação.
+          Nenhuma imagem, som ou conteúdo do seu aparelho é coletado — apenas os eventos
+          da janela da prova.</p>
+      </div>
+      <label class="aceite"><input type="checkbox" id="ok">
+        <span>Li o termo, estou sozinho e sem material de consulta, e concordo com
+          o monitoramento nas condições acima.</span></label>
+      <button class="btn solid larga" id="ir" disabled>Começar a prova</button>
+    </div>`;
+
+  const ok = document.getElementById('ok'), ir = document.getElementById('ir');
+  ok.onchange = () => { ir.disabled = !ok.checked; };
+  ir.onclick = () => comecar();
+}
+
+/* ── início e retomada ───────────────────────────────────────────── */
+async function comecar(){
+  const ir = document.getElementById('ir');
+  if (ir) ir.disabled = true;
+  try {
+    const r = await rpc('pv_iniciar', { p_prova:S.sit.prova.id });
+    S.tentativa = r.tentativa; S.token = r.token;
+    await rpc('pv_aceitar_termo', { p_tentativa:S.tentativa, p_ambiente:S.ambiente });
+    await pedirTelaCheia();
+    if (!telaCheiaDisponivel())
+      vigia.registrar('telacheia_indisponivel', null, { navegador:navigator.userAgent });
+    await carregarProva();
+  } catch(e){ if (ir) ir.disabled = false; mostrarErro(e); }
+}
+
+async function retomar(){
+  try {
+    const r = await rpc('pv_iniciar', { p_prova:S.sit.prova.id });
+    S.tentativa = r.tentativa; S.token = r.token;
+    await pedirTelaCheia();
+    await carregarProva();
+  } catch(e){ mostrarErro(e); }
+}
+
+async function carregarProva(){
+  S.conteudo = await rpc('pv_conteudo', { p_tentativa:S.tentativa, p_token:S.token });
+  S.respostas = S.conteudo.respostas || {};
+  S.seg = S.conteudo.segundos_restantes;
+  S.pagina = 0;
+
+  /* rascunho local vence se for mais recente que o que veio do servidor */
+  try {
+    const local = JSON.parse(localStorage.getItem(chaveLocal()) || '{}');
+    for (const [k,v] of Object.entries(local))
+      if (!String(S.respostas[k] ?? '').trim() && String(v).trim()) S.respostas[k] = v;
+  } catch(e){}
+
+  document.body.classList.add('emprova');
+  marca.ligar(S.sit.nome_guerra, S.sit.turma, S.tentativa);
+  vigia.ligar();
+  iniciarRelogio();
+  telaProva();
+}
+
+/* ── a prova ─────────────────────────────────────────────────────── */
+function telaProva(){
+  const c = S.conteudo;
+  const porTela = c.questoes_por_tela || 1;
+  const paginas = Math.ceil(c.questoes.length / porTela);
+  S.pagina = Math.min(Math.max(0, S.pagina), paginas - 1);
+  const fatia = c.questoes.slice(S.pagina * porTela, S.pagina * porTela + porTela);
+
+  document.querySelector('.barra')?.remove();
+  document.body.insertAdjacentHTML('afterbegin', `
+    <div class="barra">
+      <span class="nome">${esc(S.sit.nome_guerra)} · ${esc(S.sit.turma)}</span>
+      <span class="passo">${S.pagina + 1} / ${paginas}</span>
+      <span class="sinal" id="sinal"><i></i><span>salvo</span></span>
+      <span class="relogio" id="relogio">--:--:--</span>
+    </div>`);
+
+  app.innerHTML = fatia.map(q => bloco(q)).join('') + `
+    <div class="paginacao">
+      ${c.permitir_voltar ? `<button class="btn" id="ant" ${S.pagina===0?'disabled':''}>← Anterior</button>` : ''}
+      <div class="dir">
+        ${S.pagina < paginas-1
+          ? `<button class="btn solid" id="prox">Próxima →</button>`
+          : `<button class="btn solid" id="fim">Entregar prova</button>`}
+      </div>
+    </div>
+    ${c.permitir_voltar ? `<div class="mapa" id="mapa"></div>` : ''}`;
+
+  fatia.forEach(q => ligarQuestao(q));
+  pintarRelogio(); pintarTrilho(); pintarMapa();
+
+  document.getElementById('ant')?.addEventListener('click', () => { S.pagina--; telaProva(); });
+  document.getElementById('prox')?.addEventListener('click', () => { S.pagina++; telaProva(); });
+  document.getElementById('fim')?.addEventListener('click', confirmarEntrega);
+}
+
+function bloco(q){
+  const marcada = S.respostas[q.id] ?? '';
+  if (q.tipo === 'objetiva'){
+    const letras = 'ABCDEFGH';
+    const alts = (q.alternativas || []).map((a,i) => `
+      <button class="alt ${marcada === a.id ? 'marcada':''}" data-q="${q.id}" data-a="${esc(a.id)}">
+        <u>${letras[i]}</u><p>${esc(a.texto)}</p></button>`).join('');
+    return `<div class="cx" data-bloco="${q.id}">
+      <div class="qcab"><b>Questão ${q.ordem}</b><span>objetiva · peso ${q.peso}</span></div>
+      <div class="enun">${esc(q.enunciado)}${q.imagem_url
+        ? `<img src="${esc(q.imagem_url)}" alt="">` : ''}</div>
+      ${alts}</div>`;
+  }
+  return `<div class="cx" data-bloco="${q.id}">
+    <div class="qcab"><b>Questão ${q.ordem}</b><span>dissertativa · peso ${q.peso}</span></div>
+    <div class="enun">${esc(q.enunciado)}${q.imagem_url
+      ? `<img src="${esc(q.imagem_url)}" alt="">` : ''}</div>
+    <textarea data-q="${q.id}" placeholder="Escreva sua resposta.">${esc(marcada)}</textarea>
+    <div class="contador" data-c="${q.id}"></div></div>`;
+}
+
+function ligarQuestao(q){
+  if (q.tipo === 'objetiva'){
+    document.querySelectorAll(`.alt[data-q="${q.id}"]`).forEach(b => {
+      b.onclick = () => {
+        document.querySelectorAll(`.alt[data-q="${q.id}"]`)
+          .forEach(x => x.classList.remove('marcada'));
+        b.classList.add('marcada');
+        marcarResposta(q.id, b.dataset.a);
+        pintarMapa();
+      };
+    });
+  } else {
+    const ta = document.querySelector(`textarea[data-q="${q.id}"]`);
+    const ct = document.querySelector(`[data-c="${q.id}"]`);
+    const conta = () => { ct.textContent =
+      `${ta.value.trim().split(/\s+/).filter(Boolean).length} palavras`; };
+    conta();
+    ta.oninput = () => { conta(); marcarResposta(q.id, ta.value); pintarMapa(); };
+    ta.onblur  = () => salvarTudo();
+  }
+}
+
+function pintarMapa(){
+  const m = document.getElementById('mapa');
+  if (!m) return;
+  const porTela = S.conteudo.questoes_por_tela || 1;
+  m.innerHTML = S.conteudo.questoes.map((q,i) => {
+    const pg = Math.floor(i / porTela);
+    const feita = String(S.respostas[q.id] ?? '').trim() !== '';
+    return `<button data-pg="${pg}" class="${feita?'feita':''} ${pg===S.pagina?'aqui':''}"
+      title="Questão ${q.ordem}">${q.ordem}</button>`;
+  }).join('');
+  m.querySelectorAll('[data-pg]').forEach(b =>
+    b.onclick = () => { S.pagina = +b.dataset.pg; telaProva(); });
+}
+
+function confirmarEntrega(){
+  const faltam = S.conteudo.questoes.filter(q =>
+    String(S.respostas[q.id] ?? '').trim() === '');
+  abrirVeu(`<span class="eyebrow">Entrega</span>
+    <div class="h3" style="margin-top:12px">Entregar a prova?</div>
+    ${faltam.length
+      ? `<p style="color:#DEC48A">Ficaram sem resposta: questões ${
+          faltam.map(q => q.ordem).join(', ')}.</p>`
+      : `<p>Todas as questões foram respondidas.</p>`}
+    <p class="meta" style="margin-top:10px">Depois de entregar não é possível reabrir.</p>
+    <div class="linhabtn">
+      <button class="btn" id="nao">Continuar respondendo</button>
+      <button class="btn solid" id="sim">Entregar</button>
+    </div>`, () => {
+      document.getElementById('nao').onclick = fecharVeu;
+      document.getElementById('sim').onclick = async (ev) => {
+        ev.target.disabled = true;
+        try {
+          await salvarTudo();
+          await rpc('pv_entregar', { p_tentativa:S.tentativa, p_token:S.token });
+          S.travado = true;
+          clearInterval(S.tickId); clearInterval(S.pingId);
+          try { localStorage.removeItem(chaveLocal()); } catch(e){}
+          sair(); telaEntregue(false);
+        } catch(e){ ev.target.disabled = false; fecharVeu(); mostrarErro(e); }
+      };
+    });
+}
+
+function telaEntregue(porTempo){
+  document.querySelector('.barra')?.remove();
+  document.getElementById('trilho').style.width = '100%';
+  app.innerHTML = cabecalho('Avaliação · POAE 2026',
+    porTempo ? 'Tempo encerrado.' : 'Prova entregue.') + `
+    <div class="cx">
+      <p class="lede">${porTempo
+        ? 'O tempo acabou e suas respostas foram entregues automaticamente.'
+        : 'Suas respostas foram registradas.'}</p>
+      <p class="meta" style="margin-top:16px">${esc(S.sit.nome_guerra)} · ${esc(S.sit.turma)}
+        · ${new Date().toLocaleString('pt-BR')}</p>
+      <div class="linhabtn">
+        <a class="btn" href="${SITE}">Voltar ao curso</a>
+        <button class="btn" id="rec">Consultar resultado depois</button>
+      </div>
+    </div>`;
+  document.getElementById('rec').onclick = () => location.reload();
+}
+
+/* ── vista de prova ──────────────────────────────────────────────── */
+async function telaResultado(){
+  clearInterval(esperaId);
+  app.innerHTML = `<p class="meta">Carregando resultado…</p>`;
+  let r;
+  try { r = await rpc('pv_meu_resultado'); }
+  catch(e){ return mostrarErro(e); }
+
+  if (!r.disponivel){
+    app.innerHTML = cabecalho('Avaliação', 'Resultado ainda não publicado.') +
+      `<div class="cx"><p class="lede">A nota aparece aqui quando o instrutor publicar
+       a correção.</p></div>`;
+    return;
+  }
+
+  const texto = (alts, id) => {
+    if (!alts) return id ?? '—';
+    const a = alts.find(x => x.id === id);
+    return a ? `${a.id.toUpperCase()}) ${a.texto}` : (id || '—');
+  };
+
+  app.innerHTML = cabecalho('Vista de prova', r.titulo) + `
+    <div class="nota"><b>${r.nota_final ?? '—'}</b>
+      <span>de ${r.nota_maxima}<br>${esc(S.sit.nome_guerra)} · ${esc(S.sit.turma)}</span></div>
+    ${r.itens.map(i => `
+      <div class="item">
+        <div class="cab"><b>Questão ${i.ordem}</b>
+          <em>${i.nota ?? '—'} / ${i.peso}</em></div>
+        <div class="enun" style="margin-bottom:0">${esc(i.enunciado)}</div>
+        <div class="resp minha"><i>Sua resposta</i>${
+          i.tipo === 'objetiva' ? esc(texto(i.alternativas, i.minha_resposta))
+                                : esc(i.minha_resposta || '— em branco —')}</div>
+        ${i.gabarito ? `<div class="resp certa"><i>${
+          i.tipo === 'objetiva' ? 'Gabarito' : 'Resposta esperada'}</i>${
+          i.tipo === 'objetiva' ? esc(texto(i.alternativas, i.gabarito))
+                                : esc(i.gabarito)}</div>` : ''}
+        ${i.comentario ? `<div class="resp coment"><i>Comentário do instrutor</i>${
+          esc(i.comentario)}</div>` : ''}
+      </div>`).join('')}
+    <div class="linhabtn"><a class="btn" href="${SITE}">Voltar ao curso</a>
+      <button class="btn" id="sairc">Sair desta conta</button></div>`;
+
+  document.getElementById('sairc').onclick = async () => {
+    await sb.auth.signOut(); location.reload();
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ROTEAMENTO
+   ══════════════════════════════════════════════════════════════════ */
+async function rotear(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) return telaEntrada();
+  S.user = session.user;
+
+  S.sit = await rpc('pv_minha_situacao');
+  if (!S.sit.cadastrado) return telaPerfil();
+
+  if (S.sit.tentativa?.publicada) return telaResultado();
+  telaEspera();
+}
+
+(async () => {
+  try { await rotear(); }
+  catch(e){
+    app.innerHTML = cabecalho('Avaliação', 'Não foi possível abrir.') +
+      `<div class="cx">${blocoErro(e)}
+       <p class="meta" style="text-transform:none;letter-spacing:.06em">
+       Se a mensagem citar confirmação de e-mail, o instrutor precisa desativar
+       "Confirm email" no Supabase.</p></div>`;
+  }
+})();
+</script>
+</body>
+</html>
