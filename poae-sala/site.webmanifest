@@ -1,0 +1,14 @@
+{
+  "name": "POAE · Poder Aeroespacial 2026",
+  "short_name": "POAE",
+  "icons": [
+    { "src": "/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icone-maskable-512.png", "sizes": "512x512", "type": "image/png",
+      "purpose": "maskable" }
+  ],
+  "theme_color": "#070A0F",
+  "background_color": "#070A0F",
+  "display": "standalone",
+  "start_url": "/"
+}
