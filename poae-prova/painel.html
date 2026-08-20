@@ -43,6 +43,27 @@ a{color:var(--azimuth)}
   text-transform:uppercase;color:#4E5F70;text-decoration:none;margin-bottom:7px}
 .volta:hover{color:var(--vfr)}
 tr.mv td{background:rgba(194,80,107,.09)}
+.placar{border:1px solid var(--vfr);background:linear-gradient(180deg,rgba(194,80,107,.10),rgba(194,80,107,.03));
+  padding:20px;margin-bottom:14px}
+.placar > h2{font-family:var(--display);text-transform:uppercase;font-size:1rem;letter-spacing:.04em;
+  font-weight:400;margin-bottom:4px;color:var(--chart)}
+.placar .sub{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--haze);margin-bottom:16px}
+.pl-grade{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.pl-card{border:1px solid var(--line);background:rgba(7,10,15,.55);padding:14px 16px}
+.pl-nome{font-size:.95rem;letter-spacing:.02em;margin-bottom:10px;display:flex;
+  align-items:baseline;justify-content:space-between;gap:10px}
+.pl-nota{font-family:var(--display);font-size:2.1rem;line-height:1;color:var(--vfr);
+  font-variant-numeric:tabular-nums}
+.pl-nota.parcial{color:var(--ambar)}
+.pl-max{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:#4E5F70}
+.pl-conta{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--haze);
+  line-height:1.9;margin-top:10px;border-top:1px solid var(--line);padding-top:9px}
+.pl-conta i{font-style:normal;float:right;color:var(--chart)}
+.pl-alerta{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--ambar);
+  margin-top:8px;text-transform:uppercase}
+.nota-fw{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.prog{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--haze)}
 .abas{display:flex;gap:2px;padding:12px var(--gut) 0;overflow-x:auto;scrollbar-width:none}
 .abas::-webkit-scrollbar{display:none}
 .abas button{padding:10px 15px;font-family:var(--mono);font-size:10px;letter-spacing:.15em;
@@ -951,36 +972,366 @@ function editarCriterio(c, rubrica, ordem){
 
 /* ══════════════════════════════════════════════════════════════════
    TRABALHOS EM GRUPO
+
+   Regra de composição da nota, única em todo o módulo:
+
+     nota_rubrica = Σ(valor × peso) ÷ Σ(teto × peso)          → fração 0..1
+     bruta        = (grupo×peso_grupo + indiv×peso_indiv)/100 × nota_maxima
+     final        = bruta − desconto, presa entre 0 e nota_maxima
+
+   Se um dos lados não tem rubrica configurada, o outro responde por 100% —
+   senão o cadete levaria metade da nota por uma avaliação que não existe.
    ══════════════════════════════════════════════════════════════════ */
+
+/* Fração 0..1 de uma rubrica. valorDe(criterio) devolve o nível escolhido ou null. */
+function notaRubrica(criterios, valorDe){
+  if (!criterios || !criterios.length) return { tem:false, frac:null, faltam:0 };
+  var obt = 0, teto = 0, faltam = 0;
+  criterios.forEach(function(c){
+    var tc = Math.max.apply(null, [0].concat((c.niveis||[]).map(function(n){
+      return Number(n.valor) || 0; })));
+    teto += tc * Number(c.peso);
+    var v = valorDe(c);
+    if (v == null) faltam++; else obt += Number(v) * Number(c.peso);
+  });
+  return { tem:true, frac: teto ? obt / teto : null, faltam:faltam };
+}
+
+/* Nota final de um membro. Recebe o detalhe do trabalho e as seleções correntes. */
+function notaMembro(t, criteriosG, criteriosI, valorG, valorI, desconto){
+  var g = notaRubrica(criteriosG, valorG);
+  var i = notaRubrica(criteriosI, valorI);
+  if (!g.tem && !i.tem) return null;
+  var pg = Number(t.peso_grupo) || 0, pi = Number(t.peso_individual) || 0;
+  if (!g.tem){ pg = 0; pi = 100; }
+  if (!i.tem){ pg = 100; pi = 0; }
+  var nm = Number(t.nota_maxima) || 10;
+  var ng = g.frac == null ? 0 : g.frac * nm;
+  var ni = i.frac == null ? 0 : i.frac * nm;
+  var bruta = (ng * pg + ni * pi) / 100;
+  var desc = Number(desconto) || 0;
+  return {
+    notaG: g.tem ? ng : null, notaI: i.tem ? ni : null,
+    pesoG: pg, pesoI: pi, bruta: bruta, desconto: desc,
+    final: Math.max(0, Math.min(nm, bruta - desc)),
+    nmax: nm, faltamG: g.faltam, faltamI: i.faltam,
+    completo: g.faltam === 0 && i.faltam === 0
+  };
+}
+
+/* Mesma conta, a partir do retorno cru de pv_trabalho_detalhe (sem UI no meio).
+   Usada pela lista, pelo CSV e pelo relatório. */
+function notasDoDetalhe(d){
+  var t = d.trabalho;
+  var vg = {}; (d.criterios_grupo||[]).forEach(function(c){
+    if (c.valor != null) vg[c.id] = Number(c.valor); });
+  var grupo = notaRubrica(d.criterios_grupo, function(c){
+    return vg[c.id] == null ? null : vg[c.id]; });
+  var nm = Number(t.nota_maxima) || 10;
+  var membros = (d.membros||[]).map(function(m){
+    var n = notaMembro(t, d.criterios_grupo, d.criterios_individual,
+      function(c){ return vg[c.id] == null ? null : vg[c.id]; },
+      function(c){ var x = (m.notas||{})[c.id]; return x == null ? null : Number(x.valor); },
+      m.desconto);
+    return { aluno_id:m.aluno_id, nome_guerra:m.nome_guerra,
+             desconto:Number(m.desconto)||0, motivo:m.motivo_desconto||'', n:n };
+  });
+  return { notaGrupo: grupo.tem && grupo.frac != null ? grupo.frac * nm : null,
+           faltamGrupo: grupo.faltam, nmax:nm, membros:membros };
+}
+
+/* ─── lista de trabalhos da turma ───────────────────────────────────── */
 async function telaTrabalhos(){
   if (S.trabalho) return avaliarTrabalho(S.trabalho);
   const turma = S.turmaSel || S.turmas[0]?.id;
   S.turmaSel = turma;
   if (!turma) return app.innerHTML = `<p class="vazio">Nenhuma turma cadastrada</p>`;
+  const nomeTurma = S.turmas.find(x => x.id === turma)?.nome || '';
 
   const ts = await sel('pv_trabalho', '*', q => q.eq('turma_id', turma).order('numero'));
-  const ms = await sel('pv_trabalho_membro', 'trabalho_id,aluno_id');
-  const cont = {}; ms.forEach(m => cont[m.trabalho_id] = (cont[m.trabalho_id]||0) + 1);
 
   app.innerHTML = `<div class="cx"><div class="linha" style="margin:0">
       <div style="flex:1;min-width:200px"><label>Turma</label>
-        <select id="st">${optTurmas(turma)}</select></div></div>
+        <select id="st">${optTurmas(turma)}</select></div>
+      <button class="btn" id="novo">Novo trabalho</button></div>
+    <div class="linha"><button class="btn" id="pdf">Relatório em PDF</button>
+      <button class="btn" id="csv">CSV de notas</button>
+      <span class="prog dir" id="prog"></span></div>
     <p class="meta" style="margin-top:12px">${ts.length} trabalhos · temas e aulas conforme o PLADIS</p></div>
-    <div class="cx"><div class="rolar"><table><thead><tr>
-      <th>#</th><th>Aula</th><th>Tema</th><th>Membros</th><th>Estado</th></tr></thead><tbody>
-      ${ts.map(t => `<tr class="clica" data-t="${t.id}">
-        <td class="num"><b style="font-weight:500">${t.numero}</b></td>
-        <td class="num dim">${t.aula ?? '—'}</td>
-        <td style="max-width:520px;font-size:.87rem">${esc(t.tema)}</td>
-        <td class="num">${cont[t.id] ? cont[t.id] : '<span class="dim">0</span>'}</td>
-        <td><span class="selo ${t.estado==='publicado'?'ok':t.estado==='avaliado'?'alerta':''}">${t.estado}</span></td>
-      </tr>`).join('')}</tbody></table></div></div>`;
+    <div class="cx"><div id="lista"><p class="vazio">Carregando notas…</p></div></div>
+    <div class="cx"><h2>Notas por cadete</h2><div id="porCadete">
+      <p class="vazio">Carregando…</p></div></div>`;
 
   document.getElementById('st').onchange = e => { S.turmaSel = e.target.value; render(); };
-  app.querySelectorAll('[data-t]').forEach(tr =>
-    tr.onclick = () => { S.trabalho = tr.dataset.t; render(); });
+
+  /* Uma chamada de detalhe por trabalho. É o preço de não duplicar a regra de
+     cálculo no banco — a conta mora num lugar só, aqui em cima. */
+  const prog = document.getElementById('prog');
+  const dets = [];
+  for (let k = 0; k < ts.length; k++){
+    prog.textContent = `lendo avaliações ${k+1}/${ts.length}`;
+    try { dets.push(await rpc('pv_trabalho_detalhe', { p_trabalho: ts[k].id })); }
+    catch(e){ dets.push(null); }
+  }
+  prog.textContent = '';
+  S.detsTurma = { turma:turma, nome:nomeTurma, ts:ts, dets:dets };
+
+  const calc = dets.map(d => d ? notasDoDetalhe(d) : null);
+
+  document.getElementById('lista').innerHTML = ts.length ? `<div class="rolar"><table><thead><tr>
+      <th>#</th><th>Aula</th><th>Tema</th><th>Membros</th><th>Nota do grupo</th>
+      <th>Estado</th><th></th></tr></thead><tbody>
+      ${ts.map((t, k) => {
+        const c = calc[k];
+        const nota = c && c.notaGrupo != null
+          ? `<span class="nota-fw">${num(c.notaGrupo,2)}</span>
+             <span class="dim" style="font-size:.8rem"> / ${num(c.nmax,1)}</span>${
+             c.faltamGrupo ? ` <span class="selo alerta">${c.faltamGrupo} sem nota</span>` : ''}`
+          : '<span class="dim">—</span>';
+        return `<tr>
+          <td class="num clica" data-t="${t.id}"><b style="font-weight:500">${t.numero}</b></td>
+          <td class="num dim clica" data-t="${t.id}">${t.aula ?? '—'}</td>
+          <td class="clica" data-t="${t.id}" style="max-width:430px;font-size:.87rem">${esc(t.tema)}</td>
+          <td class="num clica" data-t="${t.id}">${c ? c.membros.length : 0}</td>
+          <td class="num">${nota}</td>
+          <td><span class="selo ${t.estado==='publicado'?'ok':t.estado==='avaliado'?'alerta':''}">${t.estado}</span></td>
+          <td><button class="btn mini" data-ed="${t.id}">Editar</button></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`
+    : `<p class="vazio">Nenhum trabalho nesta turma</p>`;
+
+  /* tabela achatada: um cadete por linha, com a decomposição da nota */
+  const linhas = [];
+  ts.forEach((t, k) => {
+    const c = calc[k]; if (!c) return;
+    c.membros.forEach(m => linhas.push({ t:t, c:c, m:m }));
+  });
+  document.getElementById('porCadete').innerHTML = linhas.length
+    ? `<div class="rolar"><table><thead><tr><th>Cadete</th><th>Grupo</th><th>Tema</th>
+        <th>Grupo</th><th>Individual</th><th>Desconto</th><th>Nota final</th>
+        </tr></thead><tbody>
+        ${linhas.map(l => `<tr>
+          <td>${esc(l.m.nome_guerra)}</td>
+          <td class="num dim">${l.t.numero}</td>
+          <td class="dim" style="max-width:300px;font-size:.82rem">${esc(l.t.tema)}</td>
+          <td class="num dim">${l.m.n && l.m.n.notaG != null ? num(l.m.n.notaG,2) : '—'}</td>
+          <td class="num dim">${l.m.n && l.m.n.notaI != null ? num(l.m.n.notaI,2) : '—'}</td>
+          <td class="num ${l.m.desconto ? '' : 'dim'}">${l.m.desconto ? '−'+num(l.m.desconto,2) : '—'}</td>
+          <td class="num"><b class="nota-fw" style="font-weight:500">${
+            l.m.n ? num(l.m.n.final,2) : '—'}</b>${
+            l.m.n && !l.m.n.completo ? ' <span class="selo alerta">parcial</span>' : ''}</td>
+        </tr>`).join('')}</tbody></table></div>
+        <p class="meta" style="margin-top:10px;text-transform:none;letter-spacing:.04em">
+          "Parcial" = ainda há critério sem nível marcado; o valor mostrado conta o que
+          falta como zero.</p>`
+    : `<p class="vazio">Nenhum cadete alocado em trabalhos desta turma</p>`;
+
+  app.querySelectorAll('.clica[data-t]').forEach(el =>
+    el.onclick = () => { S.trabalho = el.dataset.t; render(); });
+  app.querySelectorAll('[data-ed]').forEach(b =>
+    b.onclick = () => editarTrabalho(ts.find(x => x.id === b.dataset.ed)));
+  document.getElementById('novo').onclick = () => editarTrabalho(null, turma, ts);
+  document.getElementById('csv').onclick = () => csvTrabalhos(nomeTurma, ts, calc);
+  document.getElementById('pdf').onclick = () => relatorioTrabalhos(nomeTurma, ts, calc);
 }
 
+/* ─── criar / editar / excluir trabalho ─────────────────────────────── */
+function editarTrabalho(t, turmaId, existentes){
+  const novo = !t;
+  const prox = novo ? (Math.max(0, ...(existentes||[]).map(x => +x.numero || 0)) + 1) : t.numero;
+  modal(`<h2>${novo ? 'Novo trabalho' : 'Trabalho ' + t.numero}</h2>
+    <div class="grade g2">
+      <div class="campo"><label>Número do grupo</label>
+        <input type="number" id="tn" min="1" value="${prox}"></div>
+      <div class="campo"><label>Aula</label>
+        <input type="number" id="ta" min="1" max="18" value="${novo ? '' : (t.aula ?? '')}"></div>
+    </div>
+    <div class="campo"><label>Tema</label><textarea id="tt" rows="3">${
+      novo ? '' : esc(t.tema)}</textarea></div>
+    ${novo ? '' : `<div class="campo"><label>Estado</label><select id="te">
+      ${['rascunho','avaliado','publicado'].map(x =>
+        `<option value="${x}" ${t.estado===x?'selected':''}>${x}</option>`).join('')}
+      </select></div>`}
+    <div class="linha"><button class="btn solid" id="sv">${novo?'Criar':'Salvar'}</button>
+      <button class="btn" id="cc">Cancelar</button>
+      ${novo ? '' : `<span class="dir"><button class="btn mini" id="xx"
+        style="border-color:rgba(194,80,107,.5);color:var(--vfr)">Excluir trabalho</button></span>`}</div>
+    ${novo ? `<p class="meta" style="margin-top:14px;text-transform:none;letter-spacing:.04em">
+      O trabalho nasce sem rubrica e sem membros. Abra-o depois para configurar.</p>` : ''}`);
+
+  document.getElementById('cc').onclick = fechar;
+  document.getElementById('sv').onclick = async ev => {
+    const dados = {
+      numero: +document.getElementById('tn').value || 1,
+      aula: document.getElementById('ta').value ? +document.getElementById('ta').value : null,
+      tema: document.getElementById('tt').value.trim()
+    };
+    if (!dados.tema) return erro(new Error('O tema não pode ficar vazio.'));
+    ev.target.disabled = true;
+    try {
+      if (novo){
+        const { error } = await sb.from('pv_trabalho').insert(
+          Object.assign({ turma_id: turmaId, estado:'rascunho' }, dados));
+        if (error) throw error;
+      } else {
+        dados.estado = document.getElementById('te').value;
+        const { error } = await sb.from('pv_trabalho').update(dados).eq('id', t.id);
+        if (error) throw error;
+      }
+      fechar(); ok(novo ? 'Trabalho criado.' : 'Trabalho salvo.'); render();
+    } catch(e){ ev.target.disabled = false; erro(e); }
+  };
+
+  if (!novo) document.getElementById('xx').onclick = async ev => {
+    if (!confirm(`Excluir o trabalho ${t.numero} desta turma?\n\n` +
+      `Some a avaliação, os membros e as notas deste grupo. Não tem volta.`)) return;
+    ev.target.disabled = true;
+    try {
+      await sb.from('pv_trabalho_membro').delete().eq('trabalho_id', t.id);
+      const { error } = await sb.from('pv_trabalho').delete().eq('id', t.id);
+      if (error) throw error;
+      fechar(); ok('Trabalho excluído.'); render();
+    } catch(e){
+      ev.target.disabled = false;
+      erro(new Error('Não excluiu — há notas salvas apontando para este trabalho. ' +
+        'Exclua a avaliação primeiro, dentro do trabalho.'));
+    }
+  };
+}
+
+/* ─── CSV ───────────────────────────────────────────────────────────── */
+function csvTrabalhos(nomeTurma, ts, calc){
+  const linhas = [['Nome de guerra','Turma','Grupo','Tema','Nota do grupo',
+                   'Nota individual','Desconto','Nota final','Completo']];
+  ts.forEach((t, k) => {
+    const c = calc[k]; if (!c) return;
+    c.membros.forEach(m => linhas.push([
+      m.nome_guerra, nomeTurma, t.numero, t.tema,
+      m.n && m.n.notaG != null ? num(m.n.notaG,2) : '',
+      m.n && m.n.notaI != null ? num(m.n.notaI,2) : '',
+      m.desconto ? num(m.desconto,2) : '0,00',
+      m.n ? num(m.n.final,2) : '',
+      m.n && m.n.completo ? 'sim' : 'não']));
+  });
+  if (linhas.length === 1) return erro(new Error('Nenhuma nota para exportar.'));
+  baixarCSV(`notas-trabalhos-${nomeTurma.replace(/\s+/g,'-').toLowerCase()}.csv`, linhas);
+}
+
+/* ─── relatório para impressão ──────────────────────────────────────── */
+function relatorioTrabalhos(nomeTurma, ts, calc){
+  const hoje = new Date().toLocaleDateString('pt-BR',
+    { day:'2-digit', month:'long', year:'numeric' });
+  const comNota = ts.map((t,k) => ({ t:t, c:calc[k] })).filter(x => x.c && x.c.membros.length);
+  if (!comNota.length) return erro(new Error('Nenhum grupo com membros para relatar.'));
+
+  const blocos = comNota.map(({t, c}) => `
+    <section class="grupo">
+      <div class="g-cab">
+        <div><span class="g-num">Grupo ${t.numero}</span>
+          <span class="g-aula">${t.aula ? 'Aula ' + t.aula : 'Aula —'}</span></div>
+        <div class="g-nota">${c.notaGrupo != null ? num(c.notaGrupo,2) : '—'}
+          <i>/ ${num(c.nmax,1)}</i></div>
+      </div>
+      <p class="g-tema">${esc(t.tema)}</p>
+      <table><thead><tr><th>Cadete</th><th>Grupo</th><th>Individual</th>
+        <th>Desconto</th><th>Nota final</th></tr></thead><tbody>
+        ${c.membros.map(m => `<tr>
+          <td>${esc(m.nome_guerra)}</td>
+          <td class="n">${m.n && m.n.notaG != null ? num(m.n.notaG,2) : '—'}</td>
+          <td class="n">${m.n && m.n.notaI != null ? num(m.n.notaI,2) : '—'}</td>
+          <td class="n">${m.desconto ? '−' + num(m.desconto,2) : '—'}</td>
+          <td class="n f">${m.n ? num(m.n.final,2) : '—'}</td></tr>`).join('')}
+      </tbody></table>
+      ${c.membros.some(m => m.motivo) ? `<p class="g-obs">${
+        c.membros.filter(m => m.motivo).map(m =>
+          esc(m.nome_guerra) + ': ' + esc(m.motivo)).join(' · ')}</p>` : ''}
+    </section>`).join('');
+
+  const todos = [];
+  comNota.forEach(({t, c}) => c.membros.forEach(m =>
+    todos.push({ nome:m.nome_guerra, grupo:t.numero, final:m.n ? m.n.final : null })));
+  todos.sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'));
+
+  const doc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">
+<title>POAE 2026 · Notas de trabalho · ${esc(nomeTurma)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Barlow:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  @page{size:A4;margin:15mm 14mm 16mm}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Barlow",system-ui,sans-serif;font-weight:300;color:#12181F;
+    font-size:10.5pt;line-height:1.5;background:#fff}
+  .capa{position:relative;overflow:hidden;padding:0 0 24px;margin-bottom:24px;
+    border-bottom:1.5px solid #12181F}
+  .capa-img{position:absolute;inset:-16px -14px auto -14px;height:210px;
+    background:url('/img/hero.jpg') center 34% / cover no-repeat;opacity:.10;
+    filter:grayscale(.72) contrast(.95);z-index:0;
+    -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.55) 58%,transparent 100%);
+    mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.55) 58%,transparent 100%)}
+  .capa-tx{position:relative;z-index:1;padding-top:34px}
+  .olho{font-family:"IBM Plex Mono",monospace;font-size:8pt;letter-spacing:.22em;
+    text-transform:uppercase;color:#5B6C7D}
+  h1{font-family:"Cinzel",Georgia,serif;font-weight:400;text-transform:uppercase;
+    font-size:20pt;letter-spacing:.02em;line-height:1.1;margin:8px 0 6px}
+  .sub{font-family:"IBM Plex Mono",monospace;font-size:8.5pt;letter-spacing:.12em;
+    text-transform:uppercase;color:#5B6C7D}
+  .grupo{break-inside:avoid;page-break-inside:avoid;margin-bottom:16px;
+    border:1px solid #C9D2DA;padding:13px 15px}
+  .g-cab{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+    border-bottom:1px solid #E2E8ED;padding-bottom:7px;margin-bottom:8px}
+  .g-num{font-family:"Cinzel",serif;text-transform:uppercase;font-size:12pt;letter-spacing:.03em}
+  .g-aula{font-family:"IBM Plex Mono",monospace;font-size:8pt;letter-spacing:.14em;
+    text-transform:uppercase;color:#5B6C7D;margin-left:12px}
+  .g-nota{font-family:"Cinzel",serif;font-size:17pt;color:#A3324C;white-space:nowrap}
+  .g-nota i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:8pt;
+    color:#5B6C7D;letter-spacing:.1em}
+  .g-tema{font-size:9.5pt;color:#3A4650;margin-bottom:10px;max-width:62em}
+  table{width:100%;border-collapse:collapse;font-size:9.5pt}
+  th{font-family:"IBM Plex Mono",monospace;font-size:7.5pt;letter-spacing:.14em;
+    text-transform:uppercase;color:#5B6C7D;text-align:left;font-weight:400;
+    border-bottom:1px solid #C9D2DA;padding:5px 7px}
+  td{padding:5px 7px;border-bottom:1px solid #EDF1F4}
+  td.n{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+  td.f{font-weight:500;color:#12181F}
+  .g-obs{font-family:"IBM Plex Mono",monospace;font-size:7.5pt;color:#5B6C7D;
+    margin-top:8px;letter-spacing:.04em}
+  .resumo{break-before:page;page-break-before:always}
+  .resumo h2,.parte h2{font-family:"Cinzel",serif;text-transform:uppercase;font-size:12pt;
+    font-weight:400;letter-spacing:.04em;margin-bottom:10px;padding-bottom:6px;
+    border-bottom:1px solid #12181F}
+  .pe{margin-top:20px;padding-top:9px;border-top:1px solid #C9D2DA;
+    font-family:"IBM Plex Mono",monospace;font-size:7.5pt;letter-spacing:.1em;
+    text-transform:uppercase;color:#5B6C7D;display:flex;justify-content:space-between}
+  .aviso{background:#FBF6E7;border:1px solid #E0CE96;padding:9px 12px;font-size:8.5pt;
+    margin-bottom:16px;color:#5A4A1E}
+  @media print{.naoimprime{display:none}}
+  .naoimprime{position:fixed;top:14px;right:14px;z-index:9;font-family:"IBM Plex Mono",monospace;
+    font-size:9pt;letter-spacing:.1em;text-transform:uppercase;background:#12181F;color:#E6DECB;
+    border:0;padding:11px 18px;cursor:pointer}
+</style></head><body>
+<button class="naoimprime" onclick="window.print()">Salvar em PDF</button>
+<div class="capa"><div class="capa-img"></div><div class="capa-tx">
+  <div class="olho">Curso de Poder Aeroespacial · 2026</div>
+  <h1>Avaliação de trabalhos em grupo</h1>
+  <div class="sub">${esc(nomeTurma)} · ${comNota.length} grupos · ${todos.length} cadetes · ${hoje}</div>
+</div></div>
+<div class="parte"><h2>Por grupo</h2></div>
+${blocos}
+<section class="resumo"><h2>Resumo por cadete · ${esc(nomeTurma)}</h2>
+  <table><thead><tr><th>Cadete</th><th>Grupo</th><th>Nota final</th></tr></thead><tbody>
+    ${todos.map(x => `<tr><td>${esc(x.nome)}</td><td class="n">${x.grupo}</td>
+      <td class="n f">${x.final != null ? num(x.final,2) : '—'}</td></tr>`).join('')}
+  </tbody></table>
+</section>
+<div class="pe"><span>POAE 2026 · documento gerado pelo painel</span><span>${hoje}</span></div>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) return erro(new Error('O navegador bloqueou a janela. Libere pop-ups para este site.'));
+  w.document.write(doc); w.document.close();
+  setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 900);
+}
+
+/* ─── avaliação de um grupo ─────────────────────────────────────────── */
 async function avaliarTrabalho(id){
   const d = await rpc('pv_trabalho_detalhe', { p_trabalho:id });
   const t = d.trabalho;
@@ -1012,7 +1363,8 @@ async function avaliarTrabalho(id){
   app.innerHTML = `
     <div class="cx"><div class="linha" style="margin:0">
       <button class="btn" id="volta">← Trabalhos</button>
-      <span class="dir"><button class="btn solid" id="salvar">Salvar avaliação</button></span></div>
+      <span class="dir"><button class="btn" id="limpar">Excluir avaliação salva</button>
+        <button class="btn solid" id="salvar">Salvar avaliação</button></span></div>
       <h2 style="margin-top:16px">Grupo ${t.numero} · ${esc(d.turma)} · aula ${t.aula ?? '—'}</h2>
       <p style="font-size:.9rem;color:var(--haze);line-height:1.6">${esc(t.tema)}</p>
       <div class="grade g2" style="margin-top:16px">
@@ -1026,6 +1378,8 @@ async function avaliarTrabalho(id){
       <div class="linha"><button class="btn mini" id="salvarCfg">Aplicar configuração</button>
         <span class="meta">Os pesos precisam somar 100</span></div>
     </div>
+
+    <div class="placar" id="placar"></div>
 
     <div class="cx"><h2>Membros do grupo (${d.membros.length})</h2>
       <div class="linha" style="margin:0">
@@ -1061,7 +1415,9 @@ async function avaliarTrabalho(id){
 
     ${d.criterios_individual.length && d.membros.length ? d.membros.map(m => `
       <div class="membro"><div class="membro-cab"><b>${esc(m.nome_guerra)}</b>
-        <span class="meta dir">desempenho individual</span></div>
+        <span class="meta dir">desempenho individual
+          <button class="btn mini" data-limpa="${m.aluno_id}"
+            style="margin-left:10px">Limpar</button></span></div>
         ${d.criterios_individual.map(c => blocoCrit(c, true, m.aluno_id)).join('')}
       </div>`).join('')
       : d.membros.length ? `<div class="cx"><p class="vazio">Escolha uma rubrica individual acima</p></div>` : ''}`;
@@ -1072,27 +1428,70 @@ async function avaliarTrabalho(id){
   d.membros.forEach(m => Object.entries(m.notas || {}).forEach(([cid, v]) => {
     sel_i[m.aluno_id + '|' + cid] = Number(v.valor); }));
 
-  /* Nota corrente da rubrica: soma(valor × peso) ÷ soma(teto × peso) × nota máxima.
-     Com a rubrica do PLADIS os pesos são 1 e os tetos somam 10 — a conta devolve
-     exatamente o somatório dos níveis escolhidos. */
+  const descontoDe = aluno => {
+    const i = app.querySelector(`[data-desc="${aluno}"]`);
+    return i ? Number(i.value) || 0 : 0;
+  };
+  const calcMembro = m => notaMembro(t, d.criterios_grupo, d.criterios_individual,
+    c => sel_g[c.id] == null ? null : sel_g[c.id],
+    c => { const v = sel_i[m.aluno_id + '|' + c.id]; return v == null ? null : v; },
+    descontoDe(m.aluno_id));
+
   function totalGrupo(){
-    const cs = d.criterios_grupo;
-    if (!cs.length) return null;
-    let obt = 0, teto = 0;
-    cs.forEach(c => {
-      const tc = Math.max(0, ...(c.niveis||[]).map(n => Number(n.valor)||0));
-      teto += tc * Number(c.peso);
-      if (sel_g[c.id] != null) obt += Number(sel_g[c.id]) * Number(c.peso);
-    });
-    return teto ? (obt / teto) * Number(t.nota_maxima) : null;
+    const r = notaRubrica(d.criterios_grupo, c => sel_g[c.id] == null ? null : sel_g[c.id]);
+    return r.tem && r.frac != null ? r.frac * (Number(t.nota_maxima) || 10) : null;
   }
+
+  /* O placar. Recalcula a cada clique de nível e a cada tecla no desconto —
+     a nota que o cadete vai receber nunca fica escondida atrás de um "salvar". */
+  function pintarPlacar(){
+    const el = document.getElementById('placar');
+    if (!el) return;
+    if (!d.membros.length){
+      el.innerHTML = `<h2>Nota final por cadete</h2>
+        <div class="sub">inclua os membros do grupo para ver a composição</div>`;
+      return;
+    }
+    const semG = !d.criterios_grupo.length, semI = !d.criterios_individual.length;
+    el.innerHTML = `<h2>Nota final por cadete</h2>
+      <div class="sub">${
+        semG && semI ? 'nenhuma rubrica escolhida'
+        : semI ? `só rubrica de grupo — vale 100% da nota`
+        : semG ? `só rubrica individual — vale 100% da nota`
+        : `grupo ${t.peso_grupo}% · individual ${t.peso_individual}% · máx ${num(t.nota_maxima,1)}`
+      }</div>
+      <div class="pl-grade">${d.membros.map(m => {
+        const n = calcMembro(m);
+        if (!n) return `<div class="pl-card"><div class="pl-nome">${esc(m.nome_guerra)}</div>
+          <div class="dim" style="font-size:.85rem">sem rubrica configurada</div></div>`;
+        const parcial = !n.completo;
+        return `<div class="pl-card">
+          <div class="pl-nome"><span>${esc(m.nome_guerra)}</span>
+            <span class="pl-max">/ ${num(n.nmax,1)}</span></div>
+          <div class="pl-nota ${parcial?'parcial':''}">${num(n.final,2)}</div>
+          <div class="pl-conta">
+            ${n.notaG != null ? `Grupo (${n.pesoG}%) <i>${num(n.notaG,2)}</i><br>` : ''}
+            ${n.notaI != null ? `Individual (${n.pesoI}%) <i>${num(n.notaI,2)}</i><br>` : ''}
+            Subtotal <i>${num(n.bruta,2)}</i>
+            ${n.desconto ? `<br>Desconto <i>−${num(n.desconto,2)}</i>` : ''}
+          </div>
+          ${parcial ? `<div class="pl-alerta">parcial · ${
+            [n.faltamG ? n.faltamG + ' do grupo' : null,
+             n.faltamI ? n.faltamI + ' individual' : null]
+            .filter(Boolean).join(' e ')} sem nível marcado</div>` : ''}
+        </div>`;
+      }).join('')}</div>`;
+  }
+
   function pintarTotal(){
     const el = document.getElementById('totG');
-    if (!el) return;
-    const v = totalGrupo();
-    const faltam = d.criterios_grupo.filter(c => sel_g[c.id] == null).length;
-    el.textContent = v == null ? ''
-      : `${num(v,2)} / ${num(t.nota_maxima,1)}${faltam ? ` · ${faltam} sem nota` : ''}`;
+    if (el){
+      const v = totalGrupo();
+      const faltam = d.criterios_grupo.filter(c => sel_g[c.id] == null).length;
+      el.textContent = v == null ? ''
+        : `${num(v,2)} / ${num(t.nota_maxima,1)}${faltam ? ` · ${faltam} sem nota` : ''}`;
+    }
+    pintarPlacar();
   }
 
   app.querySelectorAll('.niv[data-crit]').forEach(b => b.onclick = () => {
@@ -1107,6 +1506,14 @@ async function avaliarTrabalho(id){
     irmaos.forEach(x => x.classList.remove('on'));
     if (alvo[chave] != null) b.classList.add('on');
     pintarTotal();
+  });
+  app.querySelectorAll('[data-desc]').forEach(i => i.oninput = pintarPlacar);
+  app.querySelectorAll('[data-limpa]').forEach(b => b.onclick = () => {
+    const al = b.dataset.limpa;
+    Object.keys(sel_i).forEach(k => { if (k.indexOf(al + '|') === 0) delete sel_i[k]; });
+    app.querySelectorAll(`.niv[data-aluno="${al}"]`).forEach(x => x.classList.remove('on'));
+    pintarTotal();
+    ok('Níveis limpos na tela. Clique em "Salvar avaliação" para gravar.');
   });
   pintarTotal();
 
@@ -1136,6 +1543,29 @@ async function avaliarTrabalho(id){
         .eq('trabalho_id', id).eq('aluno_id', b.dataset.rm);
       if (error) throw error; render(); } catch(e){ erro(e); }
   });
+
+  /* Excluir avaliação: grava vazio e CONFERE se o banco realmente apagou.
+     Se a RPC só inserir, o retorno denuncia — melhor um erro claro agora do que
+     uma nota fantasma no boletim. */
+  document.getElementById('limpar').onclick = async ev => {
+    if (!confirm('Excluir a avaliação salva deste grupo?\n\n' +
+      'Apaga os níveis do grupo e os individuais de todos os membros. ' +
+      'Descontos e observação continuam.')) return;
+    ev.target.disabled = true;
+    try {
+      await rpc('pv_salvar_avaliacao', { p_trabalho:id, p_grupo:[], p_individual:[] });
+      const v = await rpc('pv_trabalho_detalhe', { p_trabalho:id });
+      const sobrouG = (v.criterios_grupo||[]).some(c => c.valor != null);
+      const sobrouI = (v.membros||[]).some(m => Object.keys(m.notas||{}).length);
+      if (sobrouG || sobrouI){
+        erro(new Error('Não apagou: pv_salvar_avaliacao só acrescenta notas. ' +
+          'Precisa de migração no banco para excluir.'));
+        ev.target.disabled = false; return;
+      }
+      ok('Avaliação excluída.'); render();
+    } catch(e){ ev.target.disabled = false; erro(e); }
+  };
+
   document.getElementById('salvar').onclick = async ev => {
     ev.target.disabled = true;
     try {
