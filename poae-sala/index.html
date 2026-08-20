@@ -77,7 +77,13 @@ const SUPABASE_URL = 'https://ykkgybnsdmkqewjqkhfm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_aqYO6MH3-cbK9K_azQ0G0A_0jYqopbW';
 const SITE = '/';   // volta para a pagina cinematica
 
-const sb  = createClient(SUPABASE_URL, SUPABASE_KEY);
+/* storageKey próprio: a identidade anônima desta sala não pode encostar na sessão
+   nominal de /poae-prova/ — os dois módulos dividem domínio e projeto Supabase.
+   Sem isto, autenticar() abaixo reaproveitava a sessão da prova (e a sessão anônima
+   daqui vazava para lá, deixando o cadete cadastrar prova sem e-mail). */
+const sb  = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{ storageKey:'poae-sala-auth', persistSession:true, autoRefreshToken:true }
+});
 const app = document.getElementById('app');
 const conn = document.getElementById('conn');
 const params = new URLSearchParams(location.search);
@@ -131,7 +137,10 @@ async function sel(builder) {
 
 async function autenticar() {
   const { data: { session } } = await sb.auth.getSession();
-  if (session) return session.user;
+  // Só reaproveita sessão anônima. Conta nominal (a da prova) não vira participante daqui.
+  const u = session?.user;
+  if (u && (u.is_anonymous === true || !u.email)) return u;
+  if (u) { try { await sb.auth.signOut({ scope:'local' }); } catch(e){} }
   const { data, error } = await sb.auth.signInAnonymously();
   if (error) throw error;
   return data.user;
