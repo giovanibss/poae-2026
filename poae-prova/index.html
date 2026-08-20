@@ -232,7 +232,15 @@ const SUPABASE_URL = 'https://ykkgybnsdmkqewjqkhfm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_aqYO6MH3-cbK9K_azQ0G0A_0jYqopbW';
 const SITE = '/';
 
-const sb   = createClient(SUPABASE_URL, SUPABASE_KEY);
+/* Chave de sessão própria — a raiz do bug do cadastro sem e-mail.
+   /poae-sala/ e /poae-prova/ moram no mesmo domínio e no mesmo projeto Supabase.
+   Sem storageKey distinto os dois módulos gravam no MESMO slot do localStorage
+   ('sb-ykkgybnsdmkqewjqkhfm-auth-token'). A sala ao vivo faz signInAnonymously();
+   quem tivesse passado por ela chegava aqui já "logado" como anônimo e caía direto
+   em "Seu registro" — sem e-mail, sem senha, sem volta. */
+const sb   = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{ storageKey:'poae-prova-auth', persistSession:true, autoRefreshToken:true }
+});
 const app  = document.getElementById('app');
 const veu  = document.getElementById('veu');
 const veuCx= document.getElementById('veuCx');
@@ -279,7 +287,8 @@ async function rpc(fn, args){
 const S = {
   user:null, sit:null, tentativa:null, token:null, conteudo:null,
   respostas:{}, pagina:0, seg:0, tickId:null, pingId:null,
-  sujo:new Map(), flushId:null, salvando:false, travado:false, ambiente:null
+  sujo:new Map(), flushId:null, salvando:false, travado:false, ambiente:null,
+  descartada:false
 };
 
 const chaveLocal = () => 'poae_prova_' + S.tentativa;
@@ -640,8 +649,12 @@ const cabecalho = (olho, titulo) => `
 
 /* ── entrada ─────────────────────────────────────────────────────── */
 function telaEntrada(aba = 'entrar'){
+  const aviso = S.descartada ? `<div class="msg aviso">Esta porta exige conta própria,
+    com e-mail e senha — é ela que devolve sua nota depois. A identidade anônima da
+    sala ao vivo não vale aqui. Entre com sua conta ou crie uma agora.</div>` : '';
   app.innerHTML = cabecalho('Avaliação · POAE 2026', 'Identifique-se.') + `
     <div class="cx">
+      ${aviso}
       <div class="abas">
         <button data-aba="entrar" class="${aba==='entrar'?'on':''}">Entrar</button>
         <button data-aba="criar"  class="${aba==='criar'?'on':''}">Criar conta</button>
@@ -683,25 +696,43 @@ function telaEntrada(aba = 'entrar'){
         No passo seguinte você informa o nome de guerra e o código da turma.</p>`;
     const ir = document.getElementById('ir');
     ir.onclick = async () => {
+      const mail = document.getElementById('mail').value.trim();
       const s1 = document.getElementById('senha').value;
       const s2 = document.getElementById('senha2').value;
+      if (!mail.includes('@')) return mostrarErro(new Error('Informe um e-mail válido.'));
+      if (s1.length < 6) return mostrarErro(new Error('A senha precisa ter ao menos 6 caracteres.'));
       if (s1 !== s2) return mostrarErro(new Error('As senhas não conferem.'));
       ir.disabled = true;
       try {
-        const { error } = await sb.auth.signUp({
-          email: document.getElementById('mail').value.trim(), password: s1 });
+        const { data, error } = await sb.auth.signUp({ email: mail, password: s1 });
         if (error) throw error;
+        /* Sem sessão de volta = confirmação de e-mail ligada no Supabase.
+           Antes isso caía num rotear() mudo; agora o cadete sabe o que fazer. */
+        if (!data.session){
+          f.innerHTML = `<div class="msg ok">Conta criada para <b>${esc(mail)}</b>.
+            Confirme o e-mail pelo link que o Supabase enviou e volte a esta tela
+            para entrar. Se o link não chegar, procure o instrutor.</div>`;
+          return;
+        }
         rotear();
       } catch(e){ ir.disabled = false; mostrarErro(e); }
     };
+    document.getElementById('senha2').onkeydown = e => { if (e.key==='Enter') ir.click(); };
   }
 }
 
 /* ── perfil ──────────────────────────────────────────────────────── */
 function telaPerfil(){
+  /* Nunca deveria acontecer — sessaoNominal() já barrou. Mas se algum dia acontecer,
+     que estoure aqui e não num cadastro fantasma. */
+  if (!S.user?.email){ S.descartada = true; return telaEntrada(); }
+
   app.innerHTML = cabecalho('Avaliação · POAE 2026', 'Seu registro.') + `
     <div class="cx">
-      <p class="lede" style="margin-bottom:8px">O nome de guerra é o que aparece na sua prova,
+      <div class="check ok"><i>✓</i><div><b>${esc(S.user.email)}</b>
+        <span>É com este e-mail e esta senha que você volta no dia da prova e consulta
+          a nota depois. O nome de guerra abaixo fica amarrado a esta conta.</span></div></div>
+      <p class="lede" style="margin:18px 0 8px">O nome de guerra é o que aparece na sua prova,
         na marca d'água e no boletim. Ele é gravado em caixa alta.</p>
       <label>Nome de guerra</label>
       <input type="text" id="ng" class="caixaalta" maxlength="30" placeholder="ANDRADE"
@@ -721,9 +752,13 @@ function telaPerfil(){
   cod.oninput = () => { cod.value = cod.value.toUpperCase().replace(/[^A-Z0-9]/g,''); };
 
   document.getElementById('ir').onclick = async (ev) => {
+    if (ng.value.trim().length < 2)
+      return mostrarErro(new Error('Informe seu nome de guerra.'));
+    if (cod.value.length !== 6)
+      return mostrarErro(new Error('O código da turma tem seis caracteres.'));
     ev.target.disabled = true;
     try {
-      await rpc('pv_cadastrar', { p_nome_guerra:ng.value, p_codigo_turma:cod.value });
+      await rpc('pv_cadastrar', { p_nome_guerra:ng.value.trim(), p_codigo_turma:cod.value });
       rotear();
     } catch(e){ ev.target.disabled = false; mostrarErro(e); }
   };
@@ -1094,8 +1129,26 @@ async function telaResultado(){
 /* ══════════════════════════════════════════════════════════════════
    ROTEAMENTO
    ══════════════════════════════════════════════════════════════════ */
-async function rotear(){
+/* Segunda tranca, independente do storageKey: só sessão NOMINAL abre esta porta.
+   Sessão anônima ou sem e-mail é descartada localmente e vira tela de login.
+   O signOut é 'local' de propósito — não derruba nada em outra aba nem no servidor. */
+async function sessaoNominal(){
   const { data:{ session } } = await sb.auth.getSession();
+  if (!session) return null;
+  const u = session.user || {};
+  const anonima = u.is_anonymous === true ||
+                  (u.app_metadata && u.app_metadata.provider === 'anonymous');
+  if (anonima || !u.email){
+    S.descartada = true;
+    try { await sb.auth.signOut({ scope:'local' }); }
+    catch(e){ try { localStorage.removeItem('poae-prova-auth'); } catch(_){} }
+    return null;
+  }
+  return session;
+}
+
+async function rotear(){
+  const session = await sessaoNominal();
   if (!session) return telaEntrada();
   S.user = session.user;
 
