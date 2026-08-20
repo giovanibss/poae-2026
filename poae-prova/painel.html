@@ -39,6 +39,10 @@ a{color:var(--azimuth)}
   border-bottom:1px solid var(--line)}
 .topo-l{display:flex;align-items:center;gap:16px;padding:14px var(--gut) 0;flex-wrap:wrap}
 .topo-l .h1{flex:1;min-width:200px}
+.volta{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:#4E5F70;text-decoration:none;margin-bottom:7px}
+.volta:hover{color:var(--vfr)}
+tr.mv td{background:rgba(194,80,107,.09)}
 .abas{display:flex;gap:2px;padding:12px var(--gut) 0;overflow-x:auto;scrollbar-width:none}
 .abas::-webkit-scrollbar{display:none}
 .abas button{padding:10px 15px;font-family:var(--mono);font-size:10px;letter-spacing:.15em;
@@ -142,6 +146,7 @@ tr.clica:hover td{background:rgba(255,255,255,.022)}
 <div class="topo">
   <div class="topo-l">
     <div>
+      <a class="volta" href="/">&larr; Curso de Poder Aeroespacial</a>
       <span class="eyebrow">POAE 2026 · Instrutor</span>
       <div class="h1" id="tit">Painel da avaliação</div>
     </div>
@@ -158,7 +163,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = 'https://ykkgybnsdmkqewjqkhfm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_aqYO6MH3-cbK9K_azQ0G0A_0jYqopbW';
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+/* Mesma chave de /poae-prova/index.html: o instrutor atravessa da porta do cadete
+   para o painel sem relogar. E nenhuma das duas encosta na sessão anônima da sala. */
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{ storageKey:'poae-prova-auth', persistSession:true, autoRefreshToken:true }
+});
 
 const app  = document.getElementById('app');
 const abas = document.getElementById('abas');
@@ -1156,6 +1165,13 @@ async function telaTurmas(){
   const als = await sel('pv_aluno', 'id,nome_guerra,email,turma_id,ativo,criado_em',
     q => q.order('nome_guerra'));
   const cont = {}; als.forEach(a => cont[a.turma_id] = (cont[a.turma_id]||0) + 1);
+  const nomeT = id => S.turmas.find(t => t.id === id)?.nome || '—';
+
+  /* Cadastro sem e-mail = conta anônima que vazou da sala ao vivo. O cadete tem
+     acesso mas nunca conseguirá entrar de novo. Isolado aqui em cima para não
+     passar despercebido no meio da lista. */
+  const orfaos = als.filter(a => !a.email);
+  const pend = new Map();   // aluno_id -> turma_id de destino, ainda não aplicado
 
   app.innerHTML = `<div class="cx"><h2>Turmas e códigos de cadastro</h2>
     <div class="rolar"><table><thead><tr><th>Turma</th><th>Código</th><th>Cadetes</th>
@@ -1173,15 +1189,117 @@ async function telaTurmas(){
       O código é o que amarra o cadastro do cadete à turma certa. Seis caracteres,
       letras e números. Troque a cada ano.</p></div>
 
-    <div class="cx"><h2>Cadetes cadastrados (${als.length})</h2>
-    ${als.length ? `<div class="rolar"><table><thead><tr>
-      <th>Nome de guerra</th><th>Turma</th><th>E-mail</th><th>Cadastro</th></tr></thead><tbody>
-      ${als.map(a => `<tr><td>${esc(a.nome_guerra)}</td>
-        <td class="dim">${esc(S.turmas.find(t => t.id === a.turma_id)?.nome || '—')}</td>
-        <td class="dim" style="font-size:.82rem">${esc(a.email)}</td>
-        <td class="num dim">${dt(a.criado_em)}</td></tr>`).join('')}
-      </tbody></table></div>` : `<p class="vazio">Nenhum cadete se cadastrou ainda</p>`}</div>`;
+    ${orfaos.length ? `<div class="cx">
+      <h2>Cadastros sem conta de e-mail (${orfaos.length})</h2>
+      <p class="dim">Criados por sessão anônima herdada da sala ao vivo. O cadete entrou
+        sem e-mail e sem senha — e não vai conseguir voltar. Exclua o registro e peça que
+        ele crie a conta pela porta da avaliação.</p>
+      <div class="rolar" style="margin-top:12px"><table><thead><tr><th>Nome de guerra</th>
+        <th>Turma</th><th>Cadastro</th><th></th></tr></thead><tbody>
+        ${orfaos.map(a => `<tr><td>${esc(a.nome_guerra)}</td>
+          <td class="dim">${esc(nomeT(a.turma_id))}</td>
+          <td class="num dim">${dt(a.criado_em)}</td>
+          <td><button class="btn mini" data-x="${a.id}">Excluir cadastro</button></td>
+        </tr>`).join('')}</tbody></table></div></div>` : ''}
 
+    <div class="cx"><h2>Cadetes cadastrados (${als.length})</h2>
+    ${als.length ? `<div class="linha" style="margin:0 0 14px">
+        <input id="busca" placeholder="Filtrar por nome de guerra ou e-mail"
+          style="max-width:300px" autocomplete="off">
+        <select id="fturma" style="max-width:200px"><option value="">Todas as turmas</option>
+          ${S.turmas.map(t => `<option value="${t.id}">${esc(t.nome)}</option>`).join('')}
+        </select></div>
+      <div id="lista"></div>
+      <div class="linha"><button class="btn solid" id="aplicar" disabled>Aplicar realocações</button>
+        <button class="btn" id="desfazer" disabled>Descartar</button></div>
+      <p class="meta" style="margin-top:12px;text-transform:none;letter-spacing:.04em">
+        Troque a turma no seletor da linha e confirme em "Aplicar". Cadete com prova em
+        andamento não é movido — encerre ou aguarde a entrega antes.</p>`
+      : `<p class="vazio">Nenhum cadete se cadastrou ainda</p>`}</div>`;
+
+  /* ── lista filtrável ── */
+  function pintarLista(){
+    const alvo = document.getElementById('lista');
+    if (!alvo) return;
+    const termo = (document.getElementById('busca').value || '').trim().toLowerCase();
+    const ft = document.getElementById('fturma').value;
+    const vis = als.filter(a =>
+      (!ft || a.turma_id === ft) &&
+      (!termo || (a.nome_guerra||'').toLowerCase().includes(termo)
+              || (a.email||'').toLowerCase().includes(termo)));
+
+    alvo.innerHTML = vis.length ? `<div class="rolar"><table><thead><tr>
+      <th>Nome de guerra</th><th>Turma</th><th>E-mail</th><th>Cadastro</th>
+      </tr></thead><tbody>
+      ${vis.map(a => {
+        const dest = pend.get(a.id) || a.turma_id;
+        return `<tr class="${dest !== a.turma_id ? 'mv' : ''}">
+          <td>${esc(a.nome_guerra)}${a.email ? '' :
+            ' <span class="selo viva">sem e-mail</span>'}</td>
+          <td><select data-mv="${a.id}" style="min-width:150px">${S.turmas.map(t =>
+            `<option value="${t.id}" ${t.id===dest?'selected':''}>${esc(t.nome)}</option>`
+            ).join('')}</select></td>
+          <td class="dim" style="font-size:.82rem">${esc(a.email || '—')}</td>
+          <td class="num dim">${dt(a.criado_em)}</td></tr>`;
+      }).join('')}</tbody></table></div>
+      <p class="meta" style="margin-top:10px">${vis.length} de ${als.length} cadetes</p>`
+      : `<p class="vazio">Nenhum cadete neste filtro</p>`;
+
+    alvo.querySelectorAll('[data-mv]').forEach(s_ => s_.onchange = () => {
+      const a = als.find(x => x.id === s_.dataset.mv);
+      if (s_.value === a.turma_id) pend.delete(a.id); else pend.set(a.id, s_.value);
+      s_.closest('tr').classList.toggle('mv', s_.value !== a.turma_id);
+      pintarBotoes();
+    });
+  }
+  function pintarBotoes(){
+    const b = document.getElementById('aplicar');
+    const d = document.getElementById('desfazer');
+    if (!b) return;
+    b.disabled = d.disabled = pend.size === 0;
+    b.textContent = pend.size ? `Aplicar realocações (${pend.size})` : 'Aplicar realocações';
+  }
+
+  if (als.length){
+    document.getElementById('busca').oninput = pintarLista;
+    document.getElementById('fturma').onchange = pintarLista;
+    pintarLista();
+
+    document.getElementById('desfazer').onclick = () => {
+      pend.clear(); pintarLista(); pintarBotoes(); };
+
+    document.getElementById('aplicar').onclick = async ev => {
+      const resumo = [...pend].map(([aid, tid]) => {
+        const a = als.find(x => x.id === aid);
+        return `${a.nome_guerra}:  ${nomeT(a.turma_id)}  →  ${nomeT(tid)}`;
+      }).join('\n');
+      if (!confirm(`Realocar ${pend.size} cadete(s)?\n\n${resumo}`)) return;
+      ev.target.disabled = true;
+      let feitas = 0, falhou = null;
+      for (const [aid, tid] of pend){
+        try { await rpc('pv_mover_aluno', { p_aluno:aid, p_turma:tid }); feitas++; }
+        catch(e){ falhou = e; break; }
+      }
+      pend.clear();
+      if (feitas) ok(`${feitas} cadete(s) realocado(s).`);
+      if (falhou) erro(falhou);
+      render();
+    };
+  }
+
+  /* ── exclusão de cadastro órfão ── */
+  app.querySelectorAll('[data-x]').forEach(b => b.onclick = async () => {
+    const a = als.find(x => x.id === b.dataset.x);
+    if (!confirm(`Excluir o cadastro de ${a.nome_guerra}?\n\n` +
+      `O nome de guerra fica livre e o cadete terá de criar conta com e-mail. ` +
+      `Se ele já tiver prova iniciada, a exclusão é recusada.`)) return;
+    b.disabled = true;
+    try { await rpc('pv_excluir_aluno', { p_aluno:a.id });
+      ok(`Cadastro de ${a.nome_guerra} excluído.`); render(); }
+    catch(e){ b.disabled = false; erro(e); }
+  });
+
+  /* ── códigos de turma ── */
   document.getElementById('svc').onclick = async ev => {
     ev.target.disabled = true;
     try {
@@ -1197,8 +1315,7 @@ async function telaTurmas(){
   };
   document.getElementById('csv').onclick = () => baixarCSV('cadetes.csv',
     [['Nome de guerra','Turma','E-mail','Cadastro'],
-     ...als.map(a => [a.nome_guerra,
-       S.turmas.find(t => t.id === a.turma_id)?.nome || '', a.email, dt(a.criado_em)])]);
+     ...als.map(a => [a.nome_guerra, nomeT(a.turma_id), a.email || '', dt(a.criado_em)])]);
 }
 
 /* ══════════════════════════════════════════════════════════════════ */
