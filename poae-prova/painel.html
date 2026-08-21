@@ -64,6 +64,8 @@ tr.mv td{background:rgba(194,80,107,.09)}
   margin-top:8px;text-transform:uppercase}
 .nota-fw{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .prog{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--haze)}
+.opt{display:flex;gap:10px;align-items:center;margin:4px 0 2px;cursor:pointer;font-size:.9rem}
+.opt input{width:16px;height:16px;flex:none;accent-color:var(--vfr)}
 .abas{display:flex;gap:2px;padding:12px var(--gut) 0;overflow-x:auto;scrollbar-width:none}
 .abas::-webkit-scrollbar{display:none}
 .abas button{padding:10px 15px;font-family:var(--mono);font-size:10px;letter-spacing:.15em;
@@ -208,7 +210,10 @@ function erro(e){
     cru.length < 150 ? cru : 'Algo falhou.')}
     <details><summary>detalhe técnico</summary><pre>${esc(cru)}</pre></details></div>`);
 }
-function ok(t){
+/* persistir=true faz a mensagem sobreviver ao render() seguinte. Sem isso o
+   "salvo" aparece e é apagado no mesmo quadro, porque render() zera o app. */
+function ok(t, persistir){
+  if (persistir){ S.recado = t; return; }
   app.insertAdjacentHTML('afterbegin', `<div class="msg ok">${esc(t)}</div>`);
   setTimeout(() => app.querySelector('.msg.ok')?.remove(), 4000);
 }
@@ -240,7 +245,8 @@ function baixarCSV(nome, linhas){
   setTimeout(() => URL.revokeObjectURL(a.href), 1500);
 }
 
-const S = { user:null, aba:'provas', turmas:[], prova:null, trabalho:null, monitorId:null };
+const S = { user:null, aba:'provas', turmas:[], prova:null, trabalho:null,
+            monitorId:null, recado:null, turmaSel:null };
 
 /* ══════════════════════════════════════════════════════════════════
    PORTÃO
@@ -326,7 +332,9 @@ function render(){
   ({ provas:telaProvas, questoes:telaQuestoes, aplicar:telaAplicar,
      corrigir:telaCorrigir, notas:telaNotas, log:telaLog,
      trabalhos:telaTrabalhos, rubricas:telaRubricas, turmas:telaTurmas
-   })[S.aba]().catch(erro);
+   })[S.aba]()
+   .then(() => { if (S.recado){ const t = S.recado; S.recado = null; ok(t); } })
+   .catch(erro);
 }
 const optTurmas = (sel_) => S.turmas.map(t =>
   `<option value="${t.id}" ${sel_===t.id?'selected':''}>${esc(t.nome)}</option>`).join('');
@@ -1135,7 +1143,12 @@ async function telaTrabalhos(){
   document.getElementById('pdf').onclick = () => relatorioTrabalhos(nomeTurma, ts, calc);
 }
 
-/* ─── criar / editar / excluir trabalho ─────────────────────────────── */
+/* ─── criar / editar / excluir trabalho ─────────────────────────────
+   O TEMA É DO CURSO, O GRUPO É DA TURMA. Editar o tema do Grupo 1 na Turma D
+   reescreve o Grupo 1 das seis turmas — é o mesmo caso histórico apresentado por
+   times diferentes. Número e estado continuam locais, senão a renumeração de uma
+   turma bagunçaria o alinhamento das outras.
+   ─────────────────────────────────────────────────────────────────── */
 function editarTrabalho(t, turmaId, existentes){
   const novo = !t;
   const prox = novo ? (Math.max(0, ...(existentes||[]).map(x => +x.numero || 0)) + 1) : t.numero;
@@ -1152,45 +1165,59 @@ function editarTrabalho(t, turmaId, existentes){
       ${['rascunho','avaliado','publicado'].map(x =>
         `<option value="${x}" ${t.estado===x?'selected':''}>${x}</option>`).join('')}
       </select></div>`}
+    ${novo ? `<label class="opt"><input type="checkbox" id="todas" checked>
+      <span>Criar este grupo em todas as ${S.turmas.length} turmas</span></label>` : ''}
     <div class="linha"><button class="btn solid" id="sv">${novo?'Criar':'Salvar'}</button>
       <button class="btn" id="cc">Cancelar</button>
       ${novo ? '' : `<span class="dir"><button class="btn mini" id="xx"
         style="border-color:rgba(194,80,107,.5);color:var(--vfr)">Excluir trabalho</button></span>`}</div>
-    ${novo ? `<p class="meta" style="margin-top:14px;text-transform:none;letter-spacing:.04em">
-      O trabalho nasce sem rubrica e sem membros. Abra-o depois para configurar.</p>` : ''}`);
+    <p class="meta" style="margin-top:14px;text-transform:none;letter-spacing:.04em;line-height:1.7">
+      ${novo
+        ? 'O trabalho nasce sem rubrica e sem membros. Abra-o depois para configurar.'
+        : 'Tema e aula valem para o curso inteiro: salvar aqui reescreve o Grupo ' +
+          t.numero + ' das outras turmas e o programa do site. Número e estado ficam só nesta turma.'}</p>`);
 
   document.getElementById('cc').onclick = fechar;
   document.getElementById('sv').onclick = async ev => {
-    const dados = {
-      numero: +document.getElementById('tn').value || 1,
-      aula: document.getElementById('ta').value ? +document.getElementById('ta').value : null,
-      tema: document.getElementById('tt').value.trim()
-    };
-    if (!dados.tema) return erro(new Error('O tema não pode ficar vazio.'));
+    const tema = document.getElementById('tt').value.trim();
+    const aula = document.getElementById('ta').value ? +document.getElementById('ta').value : null;
+    const numero = +document.getElementById('tn').value || 1;
+    if (!tema) return erro(new Error('O tema não pode ficar vazio.'));
     ev.target.disabled = true;
     try {
       if (novo){
-        const { error } = await sb.from('pv_trabalho').insert(
-          Object.assign({ turma_id: turmaId, estado:'rascunho' }, dados));
+        const todas = document.getElementById('todas').checked;
+        const alvos = todas ? S.turmas.map(x => x.id) : [turmaId];
+        const { error } = await sb.from('pv_trabalho').insert(alvos.map(tid =>
+          ({ turma_id:tid, estado:'rascunho', numero:numero, aula:aula, tema:tema })));
         if (error) throw error;
+        fechar(); ok(todas ? `Grupo ${numero} criado nas ${alvos.length} turmas.`
+                           : `Grupo ${numero} criado.`, true);
       } else {
-        dados.estado = document.getElementById('te').value;
-        const { error } = await sb.from('pv_trabalho').update(dados).eq('id', t.id);
-        if (error) throw error;
+        /* 1º propaga o que é do curso, pelo número ORIGINAL */
+        const e1 = await sb.from('pv_trabalho').update({ tema:tema, aula:aula })
+          .eq('numero', t.numero);
+        if (e1.error) throw e1.error;
+        /* 2º o que é só desta turma */
+        const e2 = await sb.from('pv_trabalho')
+          .update({ numero:numero, estado:document.getElementById('te').value })
+          .eq('id', t.id);
+        if (e2.error) throw e2.error;
+        fechar(); ok('Tema salvo nas turmas que têm o Grupo ' + t.numero + '.', true);
       }
-      fechar(); ok(novo ? 'Trabalho criado.' : 'Trabalho salvo.'); render();
+      render();
     } catch(e){ ev.target.disabled = false; erro(e); }
   };
 
   if (!novo) document.getElementById('xx').onclick = async ev => {
-    if (!confirm(`Excluir o trabalho ${t.numero} desta turma?\n\n` +
-      `Some a avaliação, os membros e as notas deste grupo. Não tem volta.`)) return;
+    if (!confirm(`Excluir o Grupo ${t.numero} SOMENTE desta turma?\n\n` +
+      `Some a avaliação, os membros e as notas deste grupo. As outras turmas ficam.`)) return;
     ev.target.disabled = true;
     try {
       await sb.from('pv_trabalho_membro').delete().eq('trabalho_id', t.id);
       const { error } = await sb.from('pv_trabalho').delete().eq('id', t.id);
       if (error) throw error;
-      fechar(); ok('Trabalho excluído.'); render();
+      fechar(); ok('Trabalho excluído.', true); render();
     } catch(e){
       ev.target.disabled = false;
       erro(new Error('Não excluiu — há notas salvas apontando para este trabalho. ' +
@@ -1562,7 +1589,7 @@ async function avaliarTrabalho(id){
           'Precisa de migração no banco para excluir.'));
         ev.target.disabled = false; return;
       }
-      ok('Avaliação excluída.'); render();
+      ok('Avaliação excluída.', true); render();
     } catch(e){ ev.target.disabled = false; erro(e); }
   };
 
@@ -1711,7 +1738,7 @@ async function telaTurmas(){
         catch(e){ falhou = e; break; }
       }
       pend.clear();
-      if (feitas) ok(`${feitas} cadete(s) realocado(s).`);
+      if (feitas) ok(`${feitas} cadete(s) realocado(s).`, true);
       if (falhou) erro(falhou);
       render();
     };
@@ -1725,7 +1752,7 @@ async function telaTurmas(){
       `Se ele já tiver prova iniciada, a exclusão é recusada.`)) return;
     b.disabled = true;
     try { await rpc('pv_excluir_aluno', { p_aluno:a.id });
-      ok(`Cadastro de ${a.nome_guerra} excluído.`); render(); }
+      ok(`Cadastro de ${a.nome_guerra} excluído.`, true); render(); }
     catch(e){ b.disabled = false; erro(e); }
   });
 
