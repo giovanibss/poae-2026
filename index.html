@@ -1046,6 +1046,63 @@ function pintaPrograma(){
 }
 pintaPrograma();
 
+/* ═══ temas de grupo: banco por cima, constante por baixo ═══════════════
+   GRUPOS acima continua sendo a verdade que o site renderiza sozinho — se o
+   Supabase estiver pausado, offline ou lento, a página não muda de comportamento.
+   Este bloco só CORRIGE o que já está na tela, quando e se o banco responder.
+   Fonte: view pv_v_temas (número, aula, tema), leitura pública, sem notas. */
+(function(){
+  var URL_SB = "https://ykkgybnsdmkqewjqkhfm.supabase.co";
+  var KEY_SB = "sb_publishable_aqYO6MH3-cbK9K_azQ0G0A_0jYqopbW";
+  if(!window.fetch || !window.AbortController) return;
+
+  var corta = new AbortController();
+  var relogio = setTimeout(function(){ corta.abort(); }, 5000);
+
+  fetch(URL_SB + "/rest/v1/pv_v_temas?select=numero,aula,tema&order=numero.asc", {
+    headers: { apikey: KEY_SB, Authorization: "Bearer " + KEY_SB },
+    signal: corta.signal
+  })
+  .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+  .then(function(linhas){
+    clearTimeout(relogio);
+    if(!Array.isArray(linhas) || !linhas.length) return;
+
+    var novo = {};
+    linhas.forEach(function(l){
+      if(l.aula == null || !l.tema) return;
+      (novo[l.aula] = novo[l.aula] || []).push(["Grupo " + l.numero, String(l.tema)]);
+    });
+    if(!Object.keys(novo).length) return;
+
+    /* Mesmo formato? Então só troco os textos — o DOM fica de pé e as animações
+       do ScrollTrigger, que já estão presas a estes nós, não percebem nada. */
+    var mesmoFormato = Object.keys(novo).length === Object.keys(GRUPOS).length &&
+      Object.keys(novo).every(function(a){
+        return GRUPOS[a] && GRUPOS[a].length === novo[a].length; });
+
+    if(mesmoFormato){
+      Object.keys(novo).forEach(function(a){
+        novo[a].forEach(function(g, i){
+          GRUPOS[a][i] = g;
+          var alvo = document.querySelector('p[data-aula="' + a + '"][data-g="' + i + '"]');
+          if(alvo && alvo.textContent !== g[1]) alvo.textContent = g[1];
+          var nome = alvo && alvo.parentNode && alvo.parentNode.querySelector("b");
+          if(nome && nome.textContent !== g[0]) nome.textContent = g[0];
+        });
+      });
+      return;
+    }
+
+    /* Formato diferente (grupo criado ou removido no painel): repinta e avisa o
+       ScrollTrigger, que mede alturas e precisa remedir. */
+    GRUPOS = novo;
+    pintaPrograma();
+    if(window.ScrollTrigger && ScrollTrigger.refresh) ScrollTrigger.refresh();
+  })
+  .catch(function(){ clearTimeout(relogio); /* silêncio: a lista local já está na tela */ });
+})();
+
 /* ─── modo instrutor ───
    PROTÓTIPO: este portão é só de interface. NÃO é segurança — qualquer pessoa
    com o inspetor do navegador contorna. Na versão Next.js/Supabase quem autoriza
