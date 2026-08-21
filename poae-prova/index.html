@@ -211,6 +211,26 @@ body.emprova{padding-top:52px}
 
 @media print{body{display:none !important}}
 @media(prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+
+/* ── boletim: as duas parciais lado a lado ── */
+.parcial{border:1px solid var(--line);padding:18px 20px;margin-bottom:12px;
+  background:rgba(12,18,25,.5)}
+.parcial.viva{border-color:var(--vfr);
+  background:linear-gradient(180deg,rgba(194,80,107,.09),rgba(194,80,107,.02))}
+.pc-cab{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+  flex-wrap:wrap;margin-bottom:4px}
+.pc-rot{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--haze)}
+.pc-tit{font-family:var(--display);font-size:1.05rem;letter-spacing:.02em;color:var(--chart);
+  text-transform:uppercase;font-weight:400}
+.pc-nota{font-family:var(--display);font-size:2.3rem;line-height:1;color:var(--vfr);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.pc-nota small{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:#4E5F70}
+.pc-tema{font-size:.88rem;color:var(--haze);line-height:1.6;margin:8px 0 0}
+.pc-conta{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--haze);
+  line-height:2;margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.pc-conta i{font-style:normal;float:right;color:var(--chart)}
+.pc-vazio{font-size:.88rem;color:var(--haze);line-height:1.6;margin-top:6px}
 </style>
 </head>
 <body>
@@ -260,6 +280,11 @@ const ERROS = {
 
 const esc = s => String(s ?? '').replace(/[<>&"]/g,
   c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+/* Número no padrão brasileiro. O painel tem o seu; aqui faltava. */
+const num = (v, casas = 2) => v == null || isNaN(Number(v)) ? '—'
+  : Number(v).toLocaleString('pt-BR',
+      { minimumFractionDigits: casas, maximumFractionDigits: casas });
 
 function blocoErro(e){
   const cru = e?.message || String(e);
@@ -784,6 +809,92 @@ function telaInstrutor(){
 
 /* ── espera ──────────────────────────────────────────────────────── */
 let esperaId = null;
+/* Boletim do cadete: as duas parciais em blocos separados.
+   1ª parcial = trabalho em grupo (nota vinda de pv_minha_nota_trabalho, só quando
+   o instrutor publica). 2ª parcial = a prova escrita, que já vivia em S.sit.
+   As duas contas são independentes e nunca se somam aqui — quem consolida a média
+   final é o instrutor, fora do sistema. */
+async function pintarBoletim(){
+  const alvo = document.getElementById('boletim');
+  if (!alvo) return;
+  const s = S.sit;
+
+  /* 2ª parcial — prova escrita. A nota mora em pv_meu_resultado, que é a mesma
+     fonte da vista de prova; a tentativa só diz se já foi publicada. */
+  const t = s.tentativa;
+  let prova = null;
+  if (t?.publicada){
+    try {
+      const r = await rpc('pv_meu_resultado');
+      if (r?.disponivel) prova = `<div class="parcial viva">
+         <div class="pc-cab"><div>
+           <div class="pc-rot">2ª parcial · prova escrita</div>
+           <div class="pc-tit">${esc(s.prova?.titulo || 'Avaliação')}</div></div>
+           <div class="pc-nota">${num(r.nota_final, 2)}<small> / ${
+             num(r.nota_maxima, 1)}</small></div>
+         </div>
+         <button class="btn" id="verProva" style="margin-top:14px">Ver a vista de prova</button>
+       </div>`;
+    } catch(e){ prova = null; }
+  }
+  if (!prova) prova = `<div class="parcial">
+         <div class="pc-cab"><div>
+           <div class="pc-rot">2ª parcial · prova escrita</div>
+           <div class="pc-tit">${esc(s.prova?.titulo || 'Ainda não aplicada')}</div></div></div>
+         <p class="pc-vazio">${t
+           ? 'Prova entregue. A nota aparece aqui quando o instrutor publicar a correção.'
+           : 'A nota aparece aqui depois que você fizer a prova e o instrutor publicar a correção.'}</p>
+       </div>`;
+
+  /* 1ª parcial — trabalho em grupo */
+  let trabalho;
+  try {
+    const lista = await rpc('pv_minha_nota_trabalho');
+    trabalho = (lista && lista.length)
+      ? lista.map(x => `<div class="parcial viva">
+          <div class="pc-cab"><div>
+            <div class="pc-rot">1ª parcial · trabalho em grupo${
+              x.aula ? ' · aula ' + x.aula : ''}</div>
+            <div class="pc-tit">Grupo ${x.numero}</div></div>
+            <div class="pc-nota">${num(x.nota_final, 2)}<small> / ${
+              num(x.nota_maxima, 1)}</small></div>
+          </div>
+          <p class="pc-tema">${esc(x.tema)}</p>
+          <div class="pc-conta">
+            ${x.nota_grupo != null
+              ? `Apresentação do grupo (${x.peso_grupo}%) <i>${num(x.nota_grupo,2)}</i><br>` : ''}
+            ${x.nota_individual != null
+              ? `Desempenho individual (${x.peso_individual}%) <i>${
+                  num(x.nota_individual,2)}</i><br>` : ''}
+            ${Number(x.desconto) ? `Desconto${x.motivo_desconto
+                ? ' — ' + esc(x.motivo_desconto) : ''} <i>−${num(x.desconto,2)}</i>` : ''}
+          </div>
+          ${x.observacao ? `<p class="pc-tema" style="margin-top:12px">${
+            esc(x.observacao)}</p>` : ''}
+        </div>`).join('')
+      : `<div class="parcial">
+          <div class="pc-cab"><div>
+            <div class="pc-rot">1ª parcial · trabalho em grupo</div>
+            <div class="pc-tit">Aguardando publicação</div></div></div>
+          <p class="pc-vazio">A nota da sua apresentação aparece aqui assim que o
+            instrutor publicar a avaliação do seu grupo.</p>
+        </div>`;
+  } catch(e){
+    trabalho = `<div class="parcial">
+      <div class="pc-cab"><div><div class="pc-rot">1ª parcial · trabalho em grupo</div>
+      <div class="pc-tit">Indisponível</div></div></div>
+      <p class="pc-vazio">Não consegui consultar agora. Recarregue a página em instantes.</p></div>`;
+  }
+
+  alvo.innerHTML = `<h2>Suas notas</h2>${trabalho}${prova}
+    <p class="meta" style="margin-top:14px;text-transform:none;letter-spacing:.04em">
+      As duas parciais são independentes. A média final do POAE é fechada pelo
+      instrutor conforme o PLADIS.</p>`;
+
+  const vp = document.getElementById('verProva');
+  if (vp) vp.onclick = telaResultado;
+}
+
 function telaEspera(){
   const s = S.sit;
   const p = s.prova;
@@ -793,7 +904,11 @@ function telaEspera(){
         <span>${esc(s.turma)}</span></div>
     </div>
     <div class="cx" id="estado"></div>
+    <div class="cx" id="boletim"><h2>Suas notas</h2>
+      <p class="pc-vazio">Carregando…</p></div>
     <div class="linhabtn"><button class="btn" id="sairc">Sair desta conta</button></div>`;
+
+  pintarBoletim();
 
   const alvo = document.getElementById('estado');
   if (!p){
@@ -1163,7 +1278,9 @@ async function rotear(){
     return telaPerfil();
   }
 
-  if (S.sit.tentativa?.publicada) return telaResultado();
+  /* Antes isto pulava direto para a vista de prova — e o cadete nunca via a nota
+     do trabalho em grupo. Agora a espera é o painel das duas parciais, e a vista
+     de prova fica a um clique, tanto no boletim quanto no bloco de estado. */
   telaEspera();
 }
 
