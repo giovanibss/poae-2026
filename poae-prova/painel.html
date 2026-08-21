@@ -1162,7 +1162,7 @@ function editarTrabalho(t, turmaId, existentes){
     <div class="campo"><label>Tema</label><textarea id="tt" rows="3">${
       novo ? '' : esc(t.tema)}</textarea></div>
     ${novo ? '' : `<div class="campo"><label>Estado</label><select id="te">
-      ${['rascunho','avaliado','publicado'].map(x =>
+      ${['previsto','avaliado','publicado'].map(x =>
         `<option value="${x}" ${t.estado===x?'selected':''}>${x}</option>`).join('')}
       </select></div>`}
     ${novo ? `<label class="opt"><input type="checkbox" id="todas" checked>
@@ -1189,7 +1189,7 @@ function editarTrabalho(t, turmaId, existentes){
         const todas = document.getElementById('todas').checked;
         const alvos = todas ? S.turmas.map(x => x.id) : [turmaId];
         const { error } = await sb.from('pv_trabalho').insert(alvos.map(tid =>
-          ({ turma_id:tid, estado:'rascunho', numero:numero, aula:aula, tema:tema })));
+          ({ turma_id:tid, estado:'previsto', numero:numero, aula:aula, tema:tema })));
         if (error) throw error;
         fechar(); ok(todas ? `Grupo ${numero} criado nas ${alvos.length} turmas.`
                            : `Grupo ${numero} criado.`, true);
@@ -1535,12 +1535,16 @@ async function avaliarTrabalho(id){
     pintarTotal();
   });
   app.querySelectorAll('[data-desc]').forEach(i => i.oninput = pintarPlacar);
-  app.querySelectorAll('[data-limpa]').forEach(b => b.onclick = () => {
+  app.querySelectorAll('[data-limpa]').forEach(b => b.onclick = async () => {
     const al = b.dataset.limpa;
-    Object.keys(sel_i).forEach(k => { if (k.indexOf(al + '|') === 0) delete sel_i[k]; });
-    app.querySelectorAll(`.niv[data-aluno="${al}"]`).forEach(x => x.classList.remove('on'));
-    pintarTotal();
-    ok('Níveis limpos na tela. Clique em "Salvar avaliação" para gravar.');
+    const m = d.membros.find(x => x.aluno_id === al);
+    if (!confirm(`Apagar a avaliação individual de ${m.nome_guerra}?\n\n` +
+      'Some do banco na hora. A nota do grupo e o desconto continuam.')) return;
+    b.disabled = true;
+    try {
+      await rpc('pv_excluir_avaliacao', { p_trabalho:id, p_aluno:al });
+      ok(`Avaliação individual de ${m.nome_guerra} apagada.`, true); render();
+    } catch(e){ b.disabled = false; erro(e); }
   });
   pintarTotal();
 
@@ -1580,13 +1584,12 @@ async function avaliarTrabalho(id){
       'Descontos e observação continuam.')) return;
     ev.target.disabled = true;
     try {
-      await rpc('pv_salvar_avaliacao', { p_trabalho:id, p_grupo:[], p_individual:[] });
+      await rpc('pv_excluir_avaliacao', { p_trabalho:id, p_aluno:null });
       const v = await rpc('pv_trabalho_detalhe', { p_trabalho:id });
       const sobrouG = (v.criterios_grupo||[]).some(c => c.valor != null);
       const sobrouI = (v.membros||[]).some(m => Object.keys(m.notas||{}).length);
       if (sobrouG || sobrouI){
-        erro(new Error('Não apagou: pv_salvar_avaliacao só acrescenta notas. ' +
-          'Precisa de migração no banco para excluir.'));
+        erro(new Error('A exclusão não pegou. Rode a migração 12 no banco.'));
         ev.target.disabled = false; return;
       }
       ok('Avaliação excluída.', true); render();
@@ -1606,7 +1609,9 @@ async function avaliarTrabalho(id){
           .eq('trabalho_id', id).eq('aluno_id', al);
         if (error) throw error;
       }
-      await rpc('pv_salvar_avaliacao', { p_trabalho:id,
+      /* substituir, não acumular: pv_salvar_avaliacao só fazia upsert, então
+         desmarcar um nível deixava a nota velha viva no banco e no boletim. */
+      await rpc('pv_substituir_avaliacao', { p_trabalho:id,
         p_grupo: Object.entries(sel_g).map(([c,v]) => ({ criterio:c, valor:v })),
         p_individual: Object.entries(sel_i).map(([k,v]) => {
           const [aluno, criterio] = k.split('|'); return { aluno, criterio, valor:v }; }) });
