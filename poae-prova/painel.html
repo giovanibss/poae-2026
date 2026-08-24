@@ -1064,8 +1064,13 @@ async function telaTrabalhos(){
       <button class="btn" id="novo">Novo trabalho</button></div>
     <div class="linha"><button class="btn" id="pdf">Relatório em PDF</button>
       <button class="btn" id="csv">CSV de notas</button>
-      <span class="prog dir" id="prog"></span></div>
-    <p class="meta" style="margin-top:12px">${ts.length} trabalhos · temas e aulas conforme o PLADIS</p></div>
+      <span class="dir" id="lote"></span></div>
+    <p class="meta" style="margin-top:12px">${ts.length} trabalhos · temas e aulas conforme o PLADIS</p>
+    <p class="meta" style="margin-top:6px;text-transform:none;letter-spacing:.04em;line-height:1.7">
+      O cadete só enxerga a nota quando o trabalho está <b>publicado</b>. Salvar a
+      avaliação deixa em <b>avaliado</b> — é a sua chance de revisar todos os grupos
+      antes de soltar as notas de uma vez.</p>
+    <p class="prog" id="prog" style="margin-top:8px"></p></div>
     <div class="cx"><div id="lista"><p class="vazio">Carregando notas…</p></div></div>
     <div class="cx"><h2>Notas por cadete</h2><div id="porCadete">
       <p class="vazio">Carregando…</p></div></div>`;
@@ -1103,7 +1108,13 @@ async function telaTrabalhos(){
           <td class="num clica" data-t="${t.id}">${c ? c.membros.length : 0}</td>
           <td class="num">${nota}</td>
           <td><span class="selo ${t.estado==='publicado'?'ok':t.estado==='avaliado'?'alerta':''}">${t.estado}</span></td>
-          <td><button class="btn mini" data-ed="${t.id}">Editar</button></td>
+          <td class="dir" style="white-space:nowrap">${
+            t.estado==='avaliado'
+              ? `<button class="btn mini" data-pub="${t.id}" data-para="publicado"
+                   style="border-color:var(--verde);color:var(--verde)">Publicar</button> `
+            : t.estado==='publicado'
+              ? `<button class="btn mini" data-pub="${t.id}" data-para="avaliado">Recolher</button> `
+              : ''}<button class="btn mini" data-ed="${t.id}">Editar</button></td>
         </tr>`;
       }).join('')}</tbody></table></div>`
     : `<p class="vazio">Nenhum trabalho nesta turma</p>`;
@@ -1138,6 +1149,45 @@ async function telaTrabalhos(){
     el.onclick = () => { S.trabalho = el.dataset.t; render(); });
   app.querySelectorAll('[data-ed]').forEach(b =>
     b.onclick = () => editarTrabalho(ts.find(x => x.id === b.dataset.ed)));
+
+  /* Publicar é o passo que solta a nota para o cadete. Estava escondido dentro
+     do modal de edição; agora é um clique na própria linha. */
+  async function mudarEstado(ids, para){
+    const { error } = await sb.from('pv_trabalho').update({ estado: para }).in('id', ids);
+    if (error) throw error;
+  }
+  app.querySelectorAll('[data-pub]').forEach(b => b.onclick = async () => {
+    const t = ts.find(x => x.id === b.dataset.pub);
+    const para = b.dataset.para;
+    if (para === 'avaliado' && !confirm(
+      `Recolher as notas do Grupo ${t.numero}?\n\n` +
+      'Os cadetes deixam de ver a nota até você publicar de novo.')) return;
+    b.disabled = true;
+    try {
+      await mudarEstado([t.id], para);
+      ok(para === 'publicado'
+        ? `Grupo ${t.numero} publicado — os cadetes já veem a nota.`
+        : `Grupo ${t.numero} recolhido.`, true);
+      render();
+    } catch(e){ b.disabled = false; erro(e); }
+  });
+
+  const prontos = ts.filter(t => t.estado === 'avaliado');
+  const elLote = document.getElementById('lote');
+  if (elLote && prontos.length){
+    elLote.innerHTML = `<button class="btn solid" id="pubTudo">Publicar ${
+      prontos.length} avaliado${prontos.length > 1 ? 's' : ''}</button>`;
+    document.getElementById('pubTudo').onclick = async ev => {
+      if (!confirm(`Publicar as notas de ${prontos.length} grupo(s)?\n\n` +
+        prontos.map(t => `Grupo ${t.numero} — ${t.tema}`).join('\n') +
+        '\n\nOs cadetes desses grupos passam a ver a nota ao entrar.')) return;
+      ev.target.disabled = true;
+      try {
+        await mudarEstado(prontos.map(t => t.id), 'publicado');
+        ok(`${prontos.length} grupo(s) publicado(s).`, true); render();
+      } catch(e){ ev.target.disabled = false; erro(e); }
+    };
+  }
   document.getElementById('novo').onclick = () => editarTrabalho(null, turma, ts);
   document.getElementById('csv').onclick = () => csvTrabalhos(nomeTurma, ts, calc);
   document.getElementById('pdf').onclick = () => relatorioTrabalhos(nomeTurma, ts, calc);
